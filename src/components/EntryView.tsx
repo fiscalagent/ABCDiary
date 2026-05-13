@@ -51,7 +51,7 @@ export function EntryView({ entry, onEdit, onDelete, onBack }: Props) {
         </span>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
           <button className="text-btn" onClick={onEdit} title="Редактировать">✏️</button>
-          <button className="text-btn danger" onClick={confirmDelete}>Удалить</button>
+          <button className="text-btn danger" onClick={confirmDelete} title="Удалить">🗑️</button>
         </div>
       </header>
 
