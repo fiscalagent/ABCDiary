@@ -1,13 +1,108 @@
 :root {
-  --bg: #f0f4f8;
-  --surface: #ffffff;
-  --primary: #4a7fa5;
-  --text: #1e2530;
-  --text-secondary: #5a6070;
-  --border: #dde3ea;
-  --danger: #c0392b;
-  --radius: 12px;
-  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  /* ── Brand ─────────────────────────────────────────────── */
+  --abc-primary:        #4a7fa5;
+  --abc-primary-ink:    #ffffff;
+  --abc-primary-tint:   rgba(74, 127, 165, 0.09);
+  --abc-primary-shadow: rgba(74, 127, 165, 0.45);
+  --abc-primary-ring:   rgba(74, 127, 165, 0.20);
+
+  /* ── Surfaces & ink ────────────────────────────────────── */
+  --abc-bg:             #f0f4f8;
+  --abc-surface:        #ffffff;
+  --abc-border:         #dde3ea;
+  --abc-text:           #1e2530;
+  --abc-text-secondary: #5a6070;
+
+  /* ── Semantic / status ─────────────────────────────────── */
+  --abc-danger:         #c0392b;
+  --abc-danger-tint:    rgba(192, 57, 43, 0.08);
+  --abc-recording:      #e74c3c;
+  --abc-recording-ring: rgba(231, 76, 60, 0.12);
+  --abc-warn:           #e67e22;
+  --abc-warn-tint:      rgba(230, 126, 34, 0.08);
+  --abc-success:        #4a7fa5;
+
+  /* ── Type system ───────────────────────────────────────── */
+  --abc-font:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
+  --abc-font-mono:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    'Liberation Mono', monospace;
+
+  --abc-fs-app-title:   26px;
+  --abc-fs-app-title-sm:20px;
+  --abc-fs-display:     22px;
+  --abc-fs-card-title:  17px;
+  --abc-fs-body:        15px;
+  --abc-fs-meta:        14px;
+  --abc-fs-caption:     13px;
+  --abc-fs-overline:    12px;
+
+  --abc-fw-regular:     400;
+  --abc-fw-medium:      500;
+  --abc-fw-semibold:    600;
+  --abc-fw-bold:        700;
+
+  --abc-lh-tight:       1.2;
+  --abc-lh-snug:        1.45;
+  --abc-lh-normal:      1.55;
+  --abc-lh-relaxed:     1.65;
+  --abc-lh-loose:       1.8;
+
+  --abc-ls-overline:    0.5px;
+  --abc-ls-tab-strong:  0.6px;
+
+  /* ── Geometry ──────────────────────────────────────────── */
+  --abc-radius:         12px;
+  --abc-radius-sm:      8px;
+  --abc-radius-pill:    20px;
+  --abc-radius-circle:  50%;
+
+  /* ── Spacing scale ─────────────────────────────────────── */
+  --abc-space-1: 4px;
+  --abc-space-2: 6px;
+  --abc-space-3: 8px;
+  --abc-space-4: 10px;
+  --abc-space-5: 12px;
+  --abc-space-6: 14px;
+  --abc-space-7: 16px;
+  --abc-space-8: 20px;
+  --abc-space-9: 24px;
+  --abc-space-10:32px;
+
+  /* ── Elevation ─────────────────────────────────────────── */
+  --abc-shadow-card:    0 1px 4px rgba(0, 0, 0, 0.06);
+  --abc-shadow-press:   0 2px 10px rgba(0, 0, 0, 0.12);
+  --abc-shadow-numpad:  0 2px 8px rgba(0, 0, 0, 0.08);
+  --abc-shadow-fab:     0 4px 14px rgba(74, 127, 165, 0.45);
+  --abc-shadow-toast:   0 4px 16px rgba(0, 0, 0, 0.18);
+
+  /* ── Layout ────────────────────────────────────────────── */
+  --abc-content-max:    480px;
+  --abc-header-min:     56px;
+  --abc-fab-size:       56px;
+  --abc-mic-size:       72px;
+  --abc-numpad-key:     74px;
+  --abc-safe-bottom:    env(safe-area-inset-bottom, 0px);
+
+  /* ── Motion ────────────────────────────────────────────── */
+  --abc-dur-fast:   0.12s;
+  --abc-dur-base:   0.15s;
+  --abc-dur-slow:   0.30s;
+  --abc-dur-ripple: 1.2s;
+  --abc-ease:       ease;
+
+  /* ── Semantic aliases (backward-compat shorthand) ──────── */
+  --bg:             var(--abc-bg);
+  --surface:        var(--abc-surface);
+  --primary:        var(--abc-primary);
+  --text:           var(--abc-text);
+  --text-secondary: var(--abc-text-secondary);
+  --border:         var(--abc-border);
+  --danger:         var(--abc-danger);
+  --radius:         var(--abc-radius);
+  --safe-bottom:    var(--abc-safe-bottom);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -19,12 +114,28 @@ body {
   min-height: 100dvh;
 }
 
+#phone {
+  min-height: 100dvh;
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+  background: #e5ecf3;
+}
+
 #root {
   display: flex;
   flex-direction: column;
   min-height: 100dvh;
-  max-width: 480px;
+  max-width: var(--abc-content-max);
+  width: 100%;
   margin: 0 auto;
+  background: var(--abc-bg);
+  box-shadow: 0 8px 40px rgba(30, 37, 48, 0.12);
+}
+
+@media (max-width: 540px) {
+  #phone { background: var(--abc-bg); }
+  #root { box-shadow: none; }
 }
 
 /* Screens */
@@ -73,6 +184,7 @@ body {
   padding: 6px 8px;
   font-weight: 500;
   min-width: 64px;
+  font-family: inherit;
 }
 .text-btn.primary { font-weight: 600; }
 .text-btn.danger { color: var(--danger); }
@@ -100,7 +212,7 @@ body {
   font-size: 30px;
   border: none;
   cursor: pointer;
-  box-shadow: 0 4px 14px rgba(74, 127, 165, 0.45);
+  box-shadow: var(--abc-shadow-fab);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -126,7 +238,7 @@ body {
   height: 18px;
   border-radius: 50%;
   border: 2px solid var(--primary);
-  transition: background 0.12s;
+  transition: background var(--abc-dur-fast);
 }
 
 .pin-dot.filled { background: var(--primary); }
@@ -145,9 +257,10 @@ body {
   font-size: 26px;
   font-weight: 500;
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--abc-shadow-numpad);
   transition: background 0.1s;
   color: var(--text);
+  font-family: inherit;
 }
 
 .numpad-btn:active { background: var(--border); }
@@ -160,7 +273,7 @@ body {
   font-size: 14px;
   text-align: center;
   padding: 6px 12px;
-  background: rgba(192, 57, 43, 0.08);
+  background: var(--abc-danger-tint);
   border-radius: 8px;
 }
 
@@ -229,12 +342,12 @@ body {
   border-radius: var(--radius);
   padding: 14px 16px;
   cursor: pointer;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  box-shadow: var(--abc-shadow-card);
   border: 1px solid var(--border);
   transition: box-shadow 0.15s;
 }
 
-.entry-card:active { box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12); }
+.entry-card:active { box-shadow: var(--abc-shadow-press); }
 .entry-card-date { font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; }
 .entry-card-preview { font-size: 15px; line-height: 1.45; }
 
@@ -242,7 +355,7 @@ body {
   margin-top: 8px;
   font-size: 13px;
   color: var(--primary);
-  background: rgba(74, 127, 165, 0.09);
+  background: var(--abc-primary-tint);
   padding: 3px 10px;
   border-radius: 20px;
   display: inline-block;
@@ -383,13 +496,13 @@ body {
   text-align: left;
   width: 100%;
   font-family: inherit;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  box-shadow: var(--abc-shadow-card);
   transition: box-shadow 0.15s;
   -webkit-tap-highlight-color: transparent;
 }
 
 .sheet-select-card:active {
-  box-shadow: 0 2px 12px rgba(74, 127, 165, 0.2);
+  box-shadow: 0 2px 12px var(--abc-primary-ring);
   border-color: var(--primary);
 }
 
@@ -432,7 +545,7 @@ body {
 .progress-track-fill {
   height: 100%;
   background: var(--primary);
-  transition: width 0.3s ease;
+  transition: width var(--abc-dur-slow) var(--abc-ease);
 }
 
 .step-indicator {
@@ -475,8 +588,8 @@ body {
 }
 
 .recording-border {
-  border-color: #e74c3c !important;
-  box-shadow: 0 0 0 3px rgba(231, 76, 60, 0.12);
+  border-color: var(--abc-recording) !important;
+  box-shadow: 0 0 0 3px var(--abc-recording-ring);
 }
 
 .interim-preview {
@@ -489,8 +602,8 @@ body {
 
 .warn-msg {
   font-size: 13px;
-  color: #e67e22;
-  background: rgba(230, 126, 34, 0.08);
+  color: var(--abc-warn);
+  background: var(--abc-warn-tint);
   padding: 8px 12px;
   border-radius: 8px;
 }
@@ -523,7 +636,7 @@ body {
 }
 
 .mic-button.recording {
-  background: #e74c3c;
+  background: var(--abc-recording);
 }
 
 .mic-emoji {
@@ -540,15 +653,16 @@ body {
   pointer-events: none;
 }
 
+
 .r1 { width: 92px; height: 92px; }
 .r2 { width: 112px; height: 112px; }
 
 .mic-button.recording .r1 {
-  animation: mic-ripple 1.2s ease-out infinite;
+  animation: mic-ripple var(--abc-dur-ripple) ease-out infinite;
 }
 
 .mic-button.recording .r2 {
-  animation: mic-ripple 1.2s ease-out 0.35s infinite;
+  animation: mic-ripple var(--abc-dur-ripple) ease-out 0.35s infinite;
 }
 
 @keyframes mic-ripple {
@@ -616,7 +730,7 @@ body {
   border-radius: 20px;
   padding: 8px 18px;
   font-size: 13px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  box-shadow: var(--abc-shadow-toast);
   z-index: 999;
   white-space: nowrap;
   pointer-events: none;
