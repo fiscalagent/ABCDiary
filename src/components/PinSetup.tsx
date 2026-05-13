@@ -13,8 +13,8 @@ export function PinSetup({ onDone }: Props) {
   const [pin2, setPin2] = useState('');
   const [error, setError] = useState('');
 
-  const handleConfirm = async () => {
-    if (pin1 !== pin2) {
+  const handleConfirm = async (finalPin2: string) => {
+    if (pin1 !== finalPin2) {
       setError('PIN не совпадает. Попробуйте снова.');
       setPin1('');
       setPin2('');
@@ -32,7 +32,7 @@ export function PinSetup({ onDone }: Props) {
         <h1 className="app-title">ABCD Дневник</h1>
         <p className="subtitle">Придумайте PIN-код для защиты</p>
         {error && <p className="error-msg">{error}</p>}
-        <Numpad value={pin1} onChange={setPin1} onSubmit={() => setStep('confirm')} />
+        <Numpad value={pin1} onChange={setPin1} onSubmit={(final) => { setPin1(final); setStep('confirm'); }} />
       </div>
     );
   }

@@ -2,7 +2,7 @@ interface Props {
   value: string;
   onChange: (v: string) => void;
   maxLength?: number;
-  onSubmit?: () => void;
+  onSubmit?: (finalValue: string) => void;
 }
 
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫'];
@@ -12,7 +12,7 @@ export function Numpad({ value, onChange, maxLength = 4, onSubmit }: Props) {
     if (value.length < maxLength) {
       const next = value + d;
       onChange(next);
-      if (next.length === maxLength && onSubmit) onSubmit();
+      if (next.length === maxLength && onSubmit) onSubmit(next);
     }
   };
 

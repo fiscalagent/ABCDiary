@@ -12,13 +12,13 @@ export function PinLock({ onUnlock }: Props) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (finalPin: string) => {
     if (loading) return;
     setLoading(true);
     const [settings] = await db.settings.toArray();
     if (!settings) { setLoading(false); return; }
 
-    const key = await verifyPin(pin, settings.salt, settings.verifierIv, settings.verifierCt);
+    const key = await verifyPin(finalPin, settings.salt, settings.verifierIv, settings.verifierCt);
     if (key) {
       onUnlock(key);
     } else {
@@ -33,7 +33,7 @@ export function PinLock({ onUnlock }: Props) {
       <h1 className="app-title">ABCD Дневник</h1>
       <p className="subtitle">{loading ? 'Проверка...' : 'Введите PIN-код'}</p>
       {error && <p className="error-msg">{error}</p>}
-      <Numpad value={pin} onChange={setPin} onSubmit={handleSubmit} />
+      <Numpad value={pin} onChange={setPin} onSubmit={(final) => { setPin(final); handleSubmit(final); }} />
     </div>
   );
 }
