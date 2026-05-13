@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { db } from './db';
 import type { DiaryEntry, EntryData, SheetType } from './types';
 import { encryptData, decryptData } from './crypto';
@@ -43,9 +43,32 @@ export default function App() {
     const cfg = loadGoogleConfig();
     if (cfg) {
       setGoogleConfig(cfg);
-      setTimeout(() => initGoogleAuth(cfg.clientId), 500);
+      setTimeout(() => initGoogleAuth(), 500);
     }
   }, []);
+
+  const goBack = useCallback(() => {
+    if (screen.name === 'new' || screen.name === 'googleSettings' || screen.name === 'view') {
+      setScreen({ name: 'list' });
+    } else if (screen.name === 'edit') {
+      setScreen({ name: 'view', entryId: screen.entryId });
+    }
+  }, [screen]);
+
+  // Push a history entry when entering sub-screens so Android back button triggers popstate
+  const prevScreenName = useRef(screen.name);
+  useEffect(() => {
+    const subScreens = ['new', 'view', 'edit', 'googleSettings'];
+    if (subScreens.includes(screen.name) && prevScreenName.current !== screen.name) {
+      history.pushState(null, '');
+    }
+    prevScreenName.current = screen.name;
+  }, [screen.name]);
+
+  useEffect(() => {
+    window.addEventListener('popstate', goBack);
+    return () => window.removeEventListener('popstate', goBack);
+  }, [goBack]);
 
   const loadEntries = useCallback(async (key: CryptoKey) => {
     const raw = await db.entries.orderBy('createdAt').reverse().toArray();
@@ -126,11 +149,11 @@ export default function App() {
   const findEntry = (id: number) => entries.find(e => e.id === id);
 
   /* ── Google settings handlers ── */
-  const handleSaveGoogleConfig = (clientId: string, spreadsheetId: string) => {
-    const cfg = { clientId: clientId.trim(), spreadsheetId: spreadsheetId.trim() };
+  const handleSaveGoogleConfig = (spreadsheetId: string) => {
+    const cfg = { spreadsheetId: spreadsheetId.trim() };
     saveGoogleConfig(cfg);
     setGoogleConfig(cfg);
-    initGoogleAuth(cfg.clientId);
+    initGoogleAuth();
     setSettingsMsg('Настройки сохранены');
     setTimeout(() => setSettingsMsg(''), 3000);
   };
@@ -285,14 +308,13 @@ function AboutSection() {
 interface GSProps {
   config: GoogleConfig | null;
   msg: string;
-  onSave: (clientId: string, spreadsheetId: string) => void;
+  onSave: (spreadsheetId: string) => void;
   onInitSheet: () => void;
   onRevoke: () => void;
   onBack: () => void;
 }
 
 function GoogleSettingsScreen({ config, msg, onSave, onInitSheet, onRevoke, onBack }: GSProps) {
-  const [clientId, setClientId] = useState(config?.clientId ?? '');
   const [spreadsheetId, setSpreadsheetId] = useState(config?.spreadsheetId ?? '');
   const [showHelp, setShowHelp] = useState(false);
 
@@ -306,18 +328,7 @@ function GoogleSettingsScreen({ config, msg, onSave, onInitSheet, onRevoke, onBa
         </header>
         <div className="form-body">
           <div className="help-card">
-            <h3>Шаг 1 — Google Cloud Console</h3>
-            <ol>
-              <li>Откройте <strong>console.cloud.google.com</strong></li>
-              <li>Создайте проект, включите <strong>Google Sheets API</strong></li>
-              <li>Перейдите в <em>API & Services → Credentials</em></li>
-              <li>Создайте <em>OAuth 2.0 Client ID</em> (тип: Web application)</li>
-              <li>В <em>Authorized JavaScript origins</em> добавьте URL вашего приложения</li>
-              <li>Скопируйте <strong>Client ID</strong></li>
-            </ol>
-          </div>
-          <div className="help-card">
-            <h3>Шаг 2 — Google Таблица</h3>
+            <h3>Шаг 1 — Google Таблица</h3>
             <ol>
               <li>Создайте новую Google Таблицу</li>
               <li>Скопируйте ID из URL:<br />
@@ -327,7 +338,7 @@ function GoogleSettingsScreen({ config, msg, onSave, onInitSheet, onRevoke, onBa
             </ol>
           </div>
           <div className="help-card">
-            <h3>Шаг 3 — Доступ терапевта</h3>
+            <h3>Шаг 2 — Доступ терапевта</h3>
             <ol>
               <li>Откройте таблицу в Google Sheets</li>
               <li>Нажмите «Поделиться»</li>
@@ -350,19 +361,6 @@ function GoogleSettingsScreen({ config, msg, onSave, onInitSheet, onRevoke, onBa
         <div className="settings-section">
           <p className="settings-section-title">Google Таблица</p>
           <div className="field-group">
-            <label className="field-label">OAuth Client ID</label>
-            <input
-              className="settings-input"
-              type="text"
-              value={clientId}
-              onChange={e => setClientId(e.target.value)}
-              placeholder="xxxx.apps.googleusercontent.com"
-              autoCapitalize="none"
-              autoCorrect="off"
-              spellCheck={false}
-            />
-          </div>
-          <div className="field-group">
             <label className="field-label">ID таблицы</label>
             <input
               className="settings-input"
@@ -377,8 +375,8 @@ function GoogleSettingsScreen({ config, msg, onSave, onInitSheet, onRevoke, onBa
           </div>
           <button
             className="settings-btn primary"
-            onClick={() => onSave(clientId, spreadsheetId)}
-            disabled={!clientId.trim() || !spreadsheetId.trim()}
+            onClick={() => onSave(spreadsheetId)}
+            disabled={!spreadsheetId.trim()}
           >
             Сохранить
           </button>

@@ -32,10 +32,10 @@ interface TokenResponse {
 }
 
 export interface GoogleConfig {
-  clientId: string;
   spreadsheetId: string;
 }
 
+const GOOGLE_CLIENT_ID = '370573440901-0stejge8ol4dp528e5tqgg6akl4mboim.apps.googleusercontent.com';
 const SCOPE = 'https://www.googleapis.com/auth/spreadsheets';
 const SHEETS_BASE = 'https://sheets.googleapis.com/v4/spreadsheets';
 const CONFIG_KEY = 'abcdiary_google_config';
@@ -60,10 +60,10 @@ export function clearGoogleConfig(): void {
   localStorage.removeItem(CONFIG_KEY);
 }
 
-export function initGoogleAuth(clientId: string): boolean {
-  if (!window.google || !clientId) return false;
+export function initGoogleAuth(): boolean {
+  if (!window.google) return false;
   tokenClient = window.google.accounts.oauth2.initTokenClient({
-    client_id: clientId,
+    client_id: GOOGLE_CLIENT_ID,
     scope: SCOPE,
     callback: '',
   });
@@ -79,12 +79,12 @@ export function revokeGoogleToken(): void {
   tokenClient = null;
 }
 
-async function waitForToken(clientId: string): Promise<string> {
+async function waitForToken(): Promise<string> {
   if (accessToken && Date.now() < tokenExpiry) return accessToken;
 
   if (!tokenClient) {
     for (let i = 0; i < 50 && !tokenClient; i++) {
-      if (!initGoogleAuth(clientId)) await new Promise(r => setTimeout(r, 100));
+      if (!initGoogleAuth()) await new Promise(r => setTimeout(r, 100));
     }
   }
   if (!tokenClient) throw new Error('Google Sign-In не загрузился. Проверьте интернет-соединение.');
@@ -109,7 +109,7 @@ async function sheetsReq<T>(
   method = 'GET',
   body?: unknown
 ): Promise<T> {
-  const token = await waitForToken(cfg.clientId);
+  const token = await waitForToken();
   const res = await fetch(`${SHEETS_BASE}/${cfg.spreadsheetId}${path}`, {
     method,
     headers: {
