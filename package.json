@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "changelog": "node scripts/gen-changelog.js"
+    "changelog": "node scripts/gen-changelog.js",
+    "release": "node scripts/release.js"
   },
   "dependencies": {
     "dexie": "^4.4.2",
