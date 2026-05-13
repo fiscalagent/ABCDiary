@@ -1,11 +1,11 @@
 import { useState, useMemo } from 'react';
-import type { DiaryEntry } from '../types';
+import type { DiaryEntry, SheetType } from '../types';
 import { formatShortDate } from '../utils/dateFormat';
 
 interface Props {
   entries: DiaryEntry[];
   onView: (id: number) => void;
-  onNew: () => void;
+  onNew: (sheetType?: SheetType) => void;
   onLock: () => void;
   onSettings: () => void;
 }
@@ -98,9 +98,17 @@ export function EntryList({ entries, onView, onNew, onLock, onSettings }: Props)
             <div key={e.id} className="entry-card" onClick={() => onView(e.id)}>
               <div className="entry-card-meta">
                 <span className="entry-card-date">{formatShortDate(e.createdAt)}</span>
-                <span className="entry-type-badge">
-                  {e.sheetType === 'emotions' ? '💭' : '✅'}
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  {e.sheetType === 'tasks' && (e.importance || e.difficulty) && (
+                    <span className="entry-card-scores">
+                      {e.importance && <span title="Важность">⭐{e.importance}</span>}
+                      {e.difficulty && <span title="Сложность">🔥{e.difficulty}</span>}
+                    </span>
+                  )}
+                  <span className="entry-type-badge">
+                    {e.sheetType === 'emotions' ? '💭' : '✅'}
+                  </span>
+                </div>
               </div>
               <div className="entry-card-preview">
                 {preview ? clip(preview) : <span className="muted">Нет текста</span>}
@@ -111,7 +119,10 @@ export function EntryList({ entries, onView, onNew, onLock, onSettings }: Props)
         })}
       </div>
 
-      <button className="fab" onClick={onNew}>+</button>
+      <button
+        className="fab"
+        onClick={() => onNew(filter === 'emotions' ? 'emotions' : filter === 'tasks' ? 'tasks' : undefined)}
+      >+</button>
     </div>
   );
 }

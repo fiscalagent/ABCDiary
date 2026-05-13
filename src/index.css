@@ -596,24 +596,30 @@ body {
   font-size: 16px;
 }
 
+.entry-card-scores {
+  display: flex;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
 /* ══════════════════════════════════════════
-   Export message (EntryView)
+   Sync toast (App level)
 ══════════════════════════════════════════ */
-.export-msg {
-  font-size: 14px;
-  padding: 10px 14px;
-  border-radius: 8px;
-  margin-top: 4px;
-}
-
-.export-msg.success {
-  background: rgba(39, 174, 96, 0.1);
-  color: #27ae60;
-}
-
-.export-msg.error {
-  background: rgba(192, 57, 43, 0.08);
-  color: var(--danger);
+.sync-toast {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 8px 18px;
+  font-size: 13px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  z-index: 999;
+  white-space: nowrap;
+  pointer-events: none;
 }
 
 /* ══════════════════════════════════════════
@@ -711,4 +717,59 @@ body {
   font-size: 12px;
   word-break: break-all;
   font-family: monospace;
+}
+
+/* ── Changelog ── */
+.changelog {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.changelog-entry {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+}
+
+.changelog-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.changelog-version {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--primary);
+}
+
+.changelog-badge {
+  font-size: 11px;
+  background: var(--primary);
+  color: #fff;
+  border-radius: 20px;
+  padding: 1px 8px;
+}
+
+.changelog-date {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-left: auto;
+}
+
+.changelog-list {
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.changelog-list li {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
 }

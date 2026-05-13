@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { db } from './db';
-import type { DiaryEntry, EntryData } from './types';
+import type { DiaryEntry, EntryData, SheetType } from './types';
 import { encryptData, decryptData } from './crypto';
 import type { GoogleConfig } from './utils/gsheets';
 import {
@@ -9,7 +9,9 @@ import {
   initSpreadsheet,
   revokeGoogleToken,
   initGoogleAuth,
+  exportEntryToSheet,
 } from './utils/gsheets';
+import { CHANGELOG } from './changelog';
 import { PinSetup } from './components/PinSetup';
 import { PinLock } from './components/PinLock';
 import { EntryList } from './components/EntryList';
@@ -21,7 +23,7 @@ type Screen =
   | { name: 'setup' }
   | { name: 'locked' }
   | { name: 'list' }
-  | { name: 'new' }
+  | { name: 'new'; sheetType?: SheetType }
   | { name: 'view'; entryId: number }
   | { name: 'edit'; entryId: number }
   | { name: 'googleSettings' };
@@ -32,6 +34,7 @@ export default function App() {
   const [entries, setEntries] = useState<DiaryEntry[]>([]);
   const [googleConfig, setGoogleConfig] = useState<GoogleConfig | null>(null);
   const [settingsMsg, setSettingsMsg] = useState('');
+  const [syncToast, setSyncToast] = useState('');
 
   useEffect(() => {
     db.settings.count().then(n => {
@@ -72,14 +75,40 @@ export default function App() {
   const handleSave = async (data: EntryData, editId?: number) => {
     if (!cryptoKey) return;
     const now = Date.now();
+
+    if (!data.entryId) {
+      data = { ...data, entryId: crypto.randomUUID() };
+    }
+
     const { iv, ciphertext } = await encryptData(data, cryptoKey);
+    let dbId: number;
     if (editId !== undefined) {
       await db.entries.update(editId, { iv, ciphertext, updatedAt: now });
+      dbId = editId;
     } else {
-      await db.entries.add({ iv, ciphertext, createdAt: now, updatedAt: now });
+      dbId = (await db.entries.add({ iv, ciphertext, createdAt: now, updatedAt: now })) as number;
     }
     await loadEntries(cryptoKey);
     setScreen({ name: 'list' });
+
+    if (googleConfig) {
+      const existingEntry = entries.find(e => e.id === editId);
+      const fullEntry: DiaryEntry = {
+        ...data,
+        id: dbId,
+        createdAt: existingEntry?.createdAt ?? new Date(now),
+        updatedAt: new Date(now),
+      } as DiaryEntry;
+      exportEntryToSheet(googleConfig, fullEntry)
+        .then(() => {
+          setSyncToast('✅ Синхронизировано с таблицей');
+          setTimeout(() => setSyncToast(''), 3000);
+        })
+        .catch(err => {
+          setSyncToast(`⚠️ Ошибка синхронизации: ${err instanceof Error ? err.message : String(err)}`);
+          setTimeout(() => setSyncToast(''), 6000);
+        });
+    }
   };
 
   const handleDelete = async (id: number) => {
@@ -125,6 +154,10 @@ export default function App() {
 
   /* ── Screens ── */
 
+  const toast = syncToast ? (
+    <div className="sync-toast">{syncToast}</div>
+  ) : null;
+
   if (screen.name === 'loading') {
     return <div className="screen center"><p className="muted">Загрузка…</p></div>;
   }
@@ -137,31 +170,38 @@ export default function App() {
 
   if (screen.name === 'googleSettings') {
     return (
-      <GoogleSettingsScreen
-        config={googleConfig}
-        msg={settingsMsg}
-        onSave={handleSaveGoogleConfig}
-        onInitSheet={() => googleConfig && handleInitSheet(googleConfig)}
-        onRevoke={handleRevokeGoogle}
-        onBack={() => setScreen({ name: 'list' })}
-      />
+      <>
+        {toast}
+        <GoogleSettingsScreen
+          config={googleConfig}
+          msg={settingsMsg}
+          onSave={handleSaveGoogleConfig}
+          onInitSheet={() => googleConfig && handleInitSheet(googleConfig)}
+          onRevoke={handleRevokeGoogle}
+          onBack={() => setScreen({ name: 'list' })}
+        />
+      </>
     );
   }
 
   if (screen.name === 'list') {
     return (
-      <EntryList
-        entries={entries}
-        onView={id => setScreen({ name: 'view', entryId: id })}
-        onNew={() => setScreen({ name: 'new' })}
-        onLock={lock}
-        onSettings={() => setScreen({ name: 'googleSettings' })}
-      />
+      <>
+        {toast}
+        <EntryList
+          entries={entries}
+          onView={id => setScreen({ name: 'view', entryId: id })}
+          onNew={sheetType => setScreen({ name: 'new', sheetType })}
+          onLock={lock}
+          onSettings={() => setScreen({ name: 'googleSettings' })}
+        />
+      </>
     );
   }
   if (screen.name === 'new') {
     return (
       <EntryForm
+        initialSheetType={screen.sheetType}
         onSave={data => handleSave(data)}
         onCancel={() => setScreen({ name: 'list' })}
       />
@@ -182,16 +222,62 @@ export default function App() {
     const entry = findEntry(screen.entryId);
     if (!entry) return null;
     return (
-      <EntryView
-        entry={entry}
-        onEdit={() => setScreen({ name: 'edit', entryId: entry.id })}
-        onDelete={() => handleDelete(entry.id)}
-        onBack={() => setScreen({ name: 'list' })}
-        googleConfig={googleConfig}
-      />
+      <>
+        {toast}
+        <EntryView
+          entry={entry}
+          onEdit={() => setScreen({ name: 'edit', entryId: entry.id })}
+          onDelete={() => handleDelete(entry.id)}
+          onBack={() => setScreen({ name: 'list' })}
+        />
+      </>
     );
   }
   return null;
+}
+
+/* ── About Section ── */
+
+function AboutSection() {
+  const [expanded, setExpanded] = useState(false);
+  const latest = CHANGELOG[0];
+
+  return (
+    <>
+      <p className="muted" style={{ fontSize: 14, lineHeight: 1.6 }}>
+        ABCDiary v{__APP_VERSION__}<br />
+        Голосовой дневник с шифрованием и Google Таблицами.<br />
+        Все записи хранятся локально в зашифрованном виде.
+      </p>
+      <button
+        className="settings-btn secondary"
+        style={{ marginTop: 10 }}
+        onClick={() => setExpanded(v => !v)}
+      >
+        {expanded ? 'Скрыть историю версий ▲' : 'История версий ▼'}
+      </button>
+      {expanded && (
+        <div className="changelog">
+          {CHANGELOG.map(entry => (
+            <div key={entry.version} className="changelog-entry">
+              <div className="changelog-header">
+                <span className="changelog-version">v{entry.version}</span>
+                {entry.version === latest.version && (
+                  <span className="changelog-badge">текущая</span>
+                )}
+                <span className="changelog-date">{entry.date}</span>
+              </div>
+              <ul className="changelog-list">
+                {entry.changes.map((c, i) => (
+                  <li key={i}>{c}</li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      )}
+    </>
+  );
 }
 
 /* ── Google Settings Screen (inline component) ── */
@@ -319,11 +405,7 @@ function GoogleSettingsScreen({ config, msg, onSave, onInitSheet, onRevoke, onBa
 
         <div className="settings-section">
           <p className="settings-section-title">О приложении</p>
-          <p className="muted" style={{ fontSize: 14, lineHeight: 1.6 }}>
-            ABCDiary v1.0<br />
-            Голосовой дневник с шифрованием и Google Таблицами.<br />
-            Все записи хранятся локально в зашифрованном виде.
-          </p>
+          <AboutSection />
         </div>
       </div>
     </div>

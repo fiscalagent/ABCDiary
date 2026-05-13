@@ -133,8 +133,8 @@ export const SHEET_NAMES: Record<string, string> = {
 };
 
 const HEADERS: Record<string, string[]> = {
-  Эмоции: ['Время', 'Дата', 'Триггерная ситуация', 'Мысли', 'Эмоции', 'Поведение'],
-  Дела: ['Время', 'Дата', 'Занятие', 'Сфера', 'Важность (1-10)', 'Сложность (1-10)'],
+  Эмоции: ['ID', 'Время', 'Дата', 'Триггерная ситуация', 'Мысли', 'Эмоции', 'Поведение'],
+  Дела: ['ID', 'Время', 'Дата', 'Занятие', 'Сфера', 'Важность (1-10)', 'Сложность (1-10)'],
 };
 
 export async function initSpreadsheet(cfg: GoogleConfig): Promise<void> {
@@ -169,15 +169,39 @@ export async function exportEntryToSheet(cfg: GoogleConfig, entry: DiaryEntry): 
 
   let row: string[];
   if (entry.sheetType === 'emotions') {
-    row = [entry.time, entry.date, entry.situation, entry.thoughts, entry.emotions, entry.behavior];
+    row = [entry.entryId || '', entry.time, entry.date, entry.situation, entry.thoughts, entry.emotions, entry.behavior];
   } else {
-    row = [entry.time, entry.date, entry.activity, entry.sphere, entry.importance, entry.difficulty];
+    row = [entry.entryId || '', entry.time, entry.date, entry.activity, entry.sphere, entry.importance, entry.difficulty];
   }
 
-  const range = encodeURIComponent(`${sheetName}!A1`);
+  const lastCol = row.length === 7 ? 'G' : 'G';
+
+  // Try to find existing row by entryId (only if entryId is set and sheet has ID column)
+  if (entry.entryId) {
+    const colA = await sheetsReq<{ values?: string[][] }>(
+      cfg,
+      `/values/${encodeURIComponent(sheetName + '!A:A')}`
+    );
+    const rows = colA.values ?? [];
+    if (rows[0]?.[0] === 'ID') {
+      const rowIdx = rows.findIndex((r, i) => i > 0 && r[0] === entry.entryId);
+      if (rowIdx !== -1) {
+        const sheetRow = rowIdx + 1;
+        await sheetsReq(
+          cfg,
+          `/values/${encodeURIComponent(`${sheetName}!A${sheetRow}:${lastCol}${sheetRow}`)}?valueInputOption=USER_ENTERED`,
+          'PUT',
+          { values: [row] }
+        );
+        return;
+      }
+    }
+  }
+
+  // Append new row
   await sheetsReq(
     cfg,
-    `/values/${range}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
+    `/values/${encodeURIComponent(sheetName + '!A1')}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
     'POST',
     { values: [row] }
   );

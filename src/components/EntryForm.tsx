@@ -73,17 +73,38 @@ function getFields(type: SheetType): FieldConfig[] {
   return type === 'emotions' ? EMOTION_FIELDS : TASK_FIELDS;
 }
 
+const WORD_TO_DIGIT: Record<string, string> = {
+  'ноль': '0', 'нуль': '0',
+  'один': '1', 'одна': '1', 'раз': '1',
+  'два': '2', 'две': '2',
+  'три': '3', 'четыре': '4', 'пять': '5',
+  'шесть': '6', 'семь': '7', 'восемь': '8',
+  'девять': '9', 'десять': '10',
+};
+
+const NUMERIC_FIELDS = new Set(['importance', 'difficulty']);
+
+function normalizeNumericText(text: string): string {
+  const trimmed = text.trim().toLowerCase();
+  if (WORD_TO_DIGIT[trimmed]) return WORD_TO_DIGIT[trimmed];
+  // extract first number if spoken as digit
+  const match = trimmed.match(/\d+/);
+  if (match) return match[0];
+  return text.trim();
+}
+
 interface Props {
   initial?: DiaryEntry;
+  initialSheetType?: SheetType;
   onSave: (data: EntryData) => Promise<void>;
   onCancel: () => void;
 }
 
 type Phase = 'select' | 'record' | 'preview';
 
-export function EntryForm({ initial, onSave, onCancel }: Props) {
-  const [phase, setPhase] = useState<Phase>(initial ? 'preview' : 'select');
-  const [sheetType, setSheetType] = useState<SheetType>(initial?.sheetType ?? 'emotions');
+export function EntryForm({ initial, initialSheetType, onSave, onCancel }: Props) {
+  const [phase, setPhase] = useState<Phase>(initial ? 'preview' : initialSheetType ? 'record' : 'select');
+  const [sheetType, setSheetType] = useState<SheetType>(initial?.sheetType ?? initialSheetType ?? 'emotions');
   const [fieldIdx, setFieldIdx] = useState(0);
   const [values, setValues] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
@@ -96,8 +117,16 @@ export function EntryForm({ initial, onSave, onCancel }: Props) {
         if (typeof v === 'string') vals[k] = v;
       }
       setValues(vals);
+    } else if (initialSheetType) {
+      const autoVals: Record<string, string> = {};
+      for (const f of getFields(initialSheetType)) {
+        if (f.autoFill) autoVals[f.key] = f.autoFill();
+      }
+      setValues(autoVals);
+      const firstContent = getFields(initialSheetType).findIndex(f => !f.autoFill);
+      setFieldIdx(firstContent >= 0 ? firstContent : 0);
     }
-  }, [initial]);
+  }, [initial, initialSheetType]);
 
   const startNewEntry = useCallback(
     (type: SheetType) => {
@@ -127,9 +156,10 @@ export function EntryForm({ initial, onSave, onCancel }: Props) {
     const existing = values[field.key] || '';
     start(text => {
       if (text) {
+        const normalized = NUMERIC_FIELDS.has(field.key) ? normalizeNumericText(text) : text;
         setValues(v => ({
           ...v,
-          [field.key]: existing ? existing + ' ' + text : text,
+          [field.key]: NUMERIC_FIELDS.has(field.key) ? normalized : (existing ? existing + ' ' + normalized : normalized),
         }));
       }
     });
@@ -157,6 +187,7 @@ export function EntryForm({ initial, onSave, onCancel }: Props) {
     if (sheetType === 'emotions') {
       return {
         sheetType: 'emotions',
+        entryId: values.entryId || '',
         time: values.time || '',
         date: values.date || '',
         situation: values.situation || '',
@@ -167,6 +198,7 @@ export function EntryForm({ initial, onSave, onCancel }: Props) {
     }
     return {
       sheetType: 'tasks',
+      entryId: values.entryId || '',
       time: values.time || '',
       date: values.date || '',
       activity: values.activity || '',

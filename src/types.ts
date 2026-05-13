@@ -2,6 +2,7 @@ export type SheetType = 'emotions' | 'tasks';
 
 export interface EmotionData {
   sheetType: 'emotions';
+  entryId: string;
   time: string;
   date: string;
   situation: string;
@@ -12,6 +13,7 @@ export interface EmotionData {
 
 export interface TaskData {
   sheetType: 'tasks';
+  entryId: string;
   time: string;
   date: string;
   activity: string;
