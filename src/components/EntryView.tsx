@@ -1,6 +1,5 @@
 import type { DiaryEntry } from '../types';
 import { formatDateTime } from '../utils/dateFormat';
-import { shareEntry, printEntry } from '../utils/export';
 
 interface SectionDef {
   label: string;
@@ -50,7 +49,10 @@ export function EntryView({ entry, onEdit, onDelete, onBack }: Props) {
           {entry.sheetType === 'emotions' ? '💭 ' : '✅ '}
           {formatDateTime(entry.createdAt)}
         </span>
-        <button className="text-btn danger" onClick={confirmDelete}>Удалить</button>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <button className="text-btn" onClick={onEdit} title="Редактировать">✏️</button>
+          <button className="text-btn danger" onClick={confirmDelete}>Удалить</button>
+        </div>
       </header>
 
       <div className="form-body">
@@ -62,11 +64,6 @@ export function EntryView({ entry, onEdit, onDelete, onBack }: Props) {
         ))}
       </div>
 
-      <div className="action-bar">
-        <button className="action-btn" onClick={onEdit}>✏️ Редактировать</button>
-        <button className="action-btn" onClick={() => shareEntry(entry)}>↗️ Поделиться</button>
-        <button className="action-btn" onClick={() => printEntry(entry)}>🖨 PDF</button>
-      </div>
     </div>
   );
 }
