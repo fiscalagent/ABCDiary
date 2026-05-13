@@ -330,6 +330,7 @@ interface GSProps {
 function GoogleSettingsScreen({ config, msg, onSave, onInitSheet, onRevoke, onBack }: GSProps) {
   const [spreadsheetId, setSpreadsheetId] = useState(config?.spreadsheetId ?? '');
   const [showHelp, setShowHelp] = useState(false);
+  const [gsExpanded, setGsExpanded] = useState(false);
 
   if (showHelp) {
     return (
@@ -370,44 +371,52 @@ function GoogleSettingsScreen({ config, msg, onSave, onInitSheet, onRevoke, onBa
       </header>
       <div className="form-body">
         <div className="settings-section">
-          <p className="settings-section-title">Google Таблица</p>
-          <div className="field-group">
-            <label className="field-label">Ссылка на таблицу</label>
-            <input
-              className="settings-input"
-              type="url"
-              value={spreadsheetId}
-              onChange={e => setSpreadsheetId(e.target.value)}
-              placeholder="https://docs.google.com/spreadsheets/d/..."
-              autoCapitalize="none"
-              autoCorrect="off"
-              spellCheck={false}
-            />
-          </div>
           <button
-            className="settings-btn primary"
-            onClick={() => onSave(spreadsheetId)}
-            disabled={!spreadsheetId.trim()}
+            className="gs-toggle-btn"
+            onClick={() => setGsExpanded(v => !v)}
+            aria-expanded={gsExpanded}
           >
-            Сохранить
+            <span className="gs-toggle-icon">📊</span>
+            <span className="gs-toggle-label">Google Таблица</span>
+            <span className="gs-toggle-arrow">{gsExpanded ? '▲' : '▼'}</span>
           </button>
-          <button className="settings-btn secondary" onClick={() => setShowHelp(true)}>
-            Как настроить? →
-          </button>
-        </div>
-
-        <div className="settings-section">
-          <p className="settings-section-title">Действия</p>
-          <button
-            className="settings-btn secondary"
-            onClick={onInitSheet}
-            disabled={!config}
-          >
-            🔧 Создать листы «Эмоции» и «Дела» в таблице
-          </button>
-          <button className="settings-btn danger" onClick={onRevoke}>
-            🚪 Выйти из Google аккаунта
-          </button>
+          {gsExpanded && (
+            <>
+              <div className="field-group" style={{ marginTop: 12 }}>
+                <label className="field-label">Ссылка на таблицу</label>
+                <input
+                  className="settings-input"
+                  type="url"
+                  value={spreadsheetId}
+                  onChange={e => setSpreadsheetId(e.target.value)}
+                  placeholder="https://docs.google.com/spreadsheets/d/..."
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                />
+              </div>
+              <button
+                className="settings-btn primary"
+                onClick={() => onSave(spreadsheetId)}
+                disabled={!spreadsheetId.trim()}
+              >
+                Сохранить
+              </button>
+              <button className="settings-btn secondary" onClick={() => setShowHelp(true)}>
+                Как настроить? →
+              </button>
+              <button
+                className="settings-btn secondary"
+                onClick={onInitSheet}
+                disabled={!config}
+              >
+                🔧 Создать листы «Эмоции» и «Дела»
+              </button>
+              <button className="settings-btn danger" onClick={onRevoke}>
+                🚪 Выйти из Google аккаунта
+              </button>
+            </>
+          )}
         </div>
 
         {msg && <p className="settings-msg">{msg}</p>}
