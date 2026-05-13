@@ -122,6 +122,10 @@ body {
   background: #e5ecf3;
 }
 
+@media (prefers-color-scheme: dark) {
+  #phone { background: #0d1117; }
+}
+
 #root {
   display: flex;
   flex-direction: column;
@@ -886,4 +890,41 @@ body {
   font-size: 13px;
   color: var(--text-secondary);
   line-height: 1.5;
+}
+
+/* ══════════════════════════════════════════
+   Dark theme
+══════════════════════════════════════════ */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --abc-bg:             #111418;
+    --abc-surface:        #1a1f28;
+    --abc-border:         #2a3040;
+    --abc-text:           #e2e8f0;
+    --abc-text-secondary: #8896aa;
+
+    --abc-primary:        #5b9fc4;
+    --abc-primary-ink:    #ffffff;
+    --abc-primary-tint:   rgba(91, 159, 196, 0.13);
+    --abc-primary-shadow: rgba(91, 159, 196, 0.40);
+    --abc-primary-ring:   rgba(91, 159, 196, 0.22);
+
+    --abc-danger:         #e05c4b;
+    --abc-danger-tint:    rgba(224, 92, 75, 0.12);
+    --abc-recording:      #e05c4b;
+    --abc-recording-ring: rgba(224, 92, 75, 0.15);
+    --abc-warn:           #e6924a;
+    --abc-warn-tint:      rgba(230, 146, 74, 0.12);
+    --abc-success:        #5b9fc4;
+
+    --abc-shadow-card:    0 1px 4px rgba(0, 0, 0, 0.30);
+    --abc-shadow-press:   0 2px 10px rgba(0, 0, 0, 0.45);
+    --abc-shadow-numpad:  0 2px 8px rgba(0, 0, 0, 0.35);
+    --abc-shadow-fab:     0 4px 14px rgba(91, 159, 196, 0.40);
+    --abc-shadow-toast:   0 4px 16px rgba(0, 0, 0, 0.50);
+  }
+
+  #root {
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.50);
+  }
 }
