@@ -13,6 +13,7 @@ import {
   extractSpreadsheetId,
 } from './utils/gsheets';
 import { CHANGELOG } from './changelog';
+import { useAppUpdate } from './hooks/useAppUpdate';
 import { PinSetup } from './components/PinSetup';
 import { PinLock } from './components/PinLock';
 import { EntryList } from './components/EntryList';
@@ -36,6 +37,7 @@ export default function App() {
   const [googleConfig, setGoogleConfig] = useState<GoogleConfig | null>(null);
   const [settingsMsg, setSettingsMsg] = useState('');
   const [syncToast, setSyncToast] = useState('');
+  const { updateAvailable, applyUpdate } = useAppUpdate();
 
   useEffect(() => {
     db.settings.count().then(n => {
@@ -182,6 +184,13 @@ export default function App() {
     <div className="sync-toast">{syncToast}</div>
   ) : null;
 
+  const updateBanner = updateAvailable ? (
+    <div className="update-banner">
+      <span>Доступна новая версия</span>
+      <button className="update-banner-btn" onClick={applyUpdate}>Обновить</button>
+    </div>
+  ) : null;
+
   if (screen.name === 'loading') {
     return <div className="screen center"><p className="muted">Загрузка…</p></div>;
   }
@@ -195,6 +204,7 @@ export default function App() {
   if (screen.name === 'googleSettings') {
     return (
       <>
+        {updateBanner}
         {toast}
         <GoogleSettingsScreen
           config={googleConfig}
@@ -211,6 +221,7 @@ export default function App() {
   if (screen.name === 'list') {
     return (
       <>
+        {updateBanner}
         {toast}
         <EntryList
           entries={entries}
@@ -247,6 +258,7 @@ export default function App() {
     if (!entry) return null;
     return (
       <>
+        {updateBanner}
         {toast}
         <EntryView
           entry={entry}

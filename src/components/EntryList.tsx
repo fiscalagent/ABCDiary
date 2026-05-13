@@ -97,7 +97,12 @@ export function EntryList({ entries, onView, onNew, onLock, onSettings }: Props)
           return (
             <div key={e.id} className="entry-card" onClick={() => onView(e.id)}>
               <div className="entry-card-meta">
-                <span className="entry-card-date">{formatShortDate(e.createdAt)}</span>
+                <span className="entry-card-date">
+                  {formatShortDate(e.createdAt)}
+                  {e.sheetType === 'tasks' && e.time && (
+                    <span className="entry-card-time">{e.time}</span>
+                  )}
+                </span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   {e.sheetType === 'tasks' && (e.importance || e.difficulty) && (
                     <span className="entry-card-scores">

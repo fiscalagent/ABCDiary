@@ -1,9 +1,20 @@
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import { readFileSync } from 'node:fs';
 
 const { version } = JSON.parse(readFileSync('./package.json', 'utf-8')) as { version: string };
+
+function versionJsonPlugin(): Plugin {
+  const fileName = 'version.json';
+  const content = JSON.stringify({ version });
+  return {
+    name: 'version-json',
+    generateBundle() {
+      this.emitFile({ type: 'asset', fileName, source: content });
+    },
+  };
+}
 
 export default defineConfig({
   base: '/ABCDiary/',
@@ -12,6 +23,7 @@ export default defineConfig({
   },
   plugins: [
     react(),
+    versionJsonPlugin(),
     VitePWA({
       registerType: 'autoUpdate',
       manifest: {
