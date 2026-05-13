@@ -44,6 +44,11 @@ let tokenClient: TokenClient | null = null;
 let accessToken = '';
 let tokenExpiry = 0;
 
+export function extractSpreadsheetId(input: string): string {
+  const match = input.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
+  return match ? match[1] : input.trim();
+}
+
 export function loadGoogleConfig(): GoogleConfig | null {
   try {
     const raw = localStorage.getItem(CONFIG_KEY);

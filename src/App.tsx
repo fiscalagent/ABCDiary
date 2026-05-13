@@ -10,6 +10,7 @@ import {
   revokeGoogleToken,
   initGoogleAuth,
   exportEntryToSheet,
+  extractSpreadsheetId,
 } from './utils/gsheets';
 import { CHANGELOG } from './changelog';
 import { PinSetup } from './components/PinSetup';
@@ -150,7 +151,7 @@ export default function App() {
 
   /* ── Google settings handlers ── */
   const handleSaveGoogleConfig = (spreadsheetId: string) => {
-    const cfg = { spreadsheetId: spreadsheetId.trim() };
+    const cfg = { spreadsheetId: extractSpreadsheetId(spreadsheetId) };
     saveGoogleConfig(cfg);
     setGoogleConfig(cfg);
     initGoogleAuth();
@@ -331,9 +332,7 @@ function GoogleSettingsScreen({ config, msg, onSave, onInitSheet, onRevoke, onBa
             <h3>Шаг 1 — Google Таблица</h3>
             <ol>
               <li>Создайте новую Google Таблицу</li>
-              <li>Скопируйте ID из URL:<br />
-                <code>spreadsheets/d/<em>ID_ЗДЕСЬ</em>/edit</code>
-              </li>
+              <li>Нажмите «Поделиться» → «Скопировать ссылку»<br />или скопируйте ссылку из адресной строки</li>
               <li>После сохранения настроек нажмите<br />«Инициализировать таблицу»</li>
             </ol>
           </div>
@@ -361,13 +360,13 @@ function GoogleSettingsScreen({ config, msg, onSave, onInitSheet, onRevoke, onBa
         <div className="settings-section">
           <p className="settings-section-title">Google Таблица</p>
           <div className="field-group">
-            <label className="field-label">ID таблицы</label>
+            <label className="field-label">Ссылка на таблицу</label>
             <input
               className="settings-input"
-              type="text"
+              type="url"
               value={spreadsheetId}
               onChange={e => setSpreadsheetId(e.target.value)}
-              placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms"
+              placeholder="https://docs.google.com/spreadsheets/d/..."
               autoCapitalize="none"
               autoCorrect="off"
               spellCheck={false}
