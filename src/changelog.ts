@@ -6,6 +6,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.3.0',
+    date: '2026-05-16',
+    changes: [
+      'Добавлено поле «Удовольствие (1-10)» в записи дел',
+      'Время и дата теперь вводятся голосом',
+      'Время можно задать диапазоном: «с 14 до 16»',
+    ],
+  },
+  {
     version: '1.2.0',
     date: '2026-05-14',
     changes: [
