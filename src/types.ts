@@ -20,6 +20,7 @@ export interface TaskData {
   sphere: string;
   importance: string;
   difficulty: string;
+  pleasure: string;
 }
 
 export type EntryData = EmotionData | TaskData;

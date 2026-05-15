@@ -139,7 +139,7 @@ export const SHEET_NAMES: Record<string, string> = {
 
 const HEADERS: Record<string, string[]> = {
   Эмоции: ['ID', 'Время', 'Дата', 'Триггерная ситуация', 'Мысли', 'Эмоции', 'Поведение'],
-  Дела: ['ID', 'Время', 'Дата', 'Занятие', 'Сфера', 'Важность (1-10)', 'Сложность (1-10)'],
+  Дела: ['ID', 'Время', 'Дата', 'Занятие', 'Сфера', 'Важность (1-10)', 'Сложность (1-10)', 'Удовольствие (1-10)'],
 };
 
 export async function initSpreadsheet(cfg: GoogleConfig): Promise<void> {
@@ -176,10 +176,10 @@ export async function exportEntryToSheet(cfg: GoogleConfig, entry: DiaryEntry): 
   if (entry.sheetType === 'emotions') {
     row = [entry.entryId || '', entry.time, entry.date, entry.situation, entry.thoughts, entry.emotions, entry.behavior];
   } else {
-    row = [entry.entryId || '', entry.time, entry.date, entry.activity, entry.sphere, entry.importance, entry.difficulty];
+    row = [entry.entryId || '', entry.time, entry.date, entry.activity, entry.sphere, entry.importance, entry.difficulty, entry.pleasure];
   }
 
-  const lastCol = row.length === 7 ? 'G' : 'G';
+  const lastCol = row.length === 8 ? 'H' : 'G';
 
   // Try to find existing row by entryId (only if entryId is set and sheet has ID column)
   if (entry.entryId) {

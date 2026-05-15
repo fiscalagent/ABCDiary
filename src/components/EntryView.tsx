@@ -24,6 +24,7 @@ function getSections(entry: DiaryEntry): SectionDef[] {
     { label: 'Сфера', value: entry.sphere },
     { label: 'Важность (1-10)', value: entry.importance },
     { label: 'Сложность (1-10)', value: entry.difficulty },
+    { label: 'Удовольствие (1-10)', value: entry.pleasure },
   ];
 }
 

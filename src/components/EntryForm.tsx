@@ -14,16 +14,13 @@ const EMOTION_FIELDS: FieldConfig[] = [
   {
     key: 'time',
     label: 'Время',
-    hint: 'Скажите или введите время',
-    autoFill: () => new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+    hint: 'Например: «14:30», «в два», «с 14 до 16»',
     rows: 1,
   },
   {
     key: 'date',
     label: 'Дата',
     hint: 'Скажите или введите дату',
-    autoFill: () =>
-      new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }),
     rows: 1,
   },
   { key: 'situation', label: 'Триггерная ситуация', hint: 'Опишите ситуацию, которая произошла' },
@@ -36,16 +33,13 @@ const TASK_FIELDS: FieldConfig[] = [
   {
     key: 'time',
     label: 'Время',
-    hint: 'Скажите или введите время',
-    autoFill: () => new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+    hint: 'Например: «14:30», «в два», «с 14 до 16»',
     rows: 1,
   },
   {
     key: 'date',
     label: 'Дата',
     hint: 'Скажите или введите дату',
-    autoFill: () =>
-      new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }),
     rows: 1,
   },
   { key: 'activity', label: 'Занятие', hint: 'Чем занимались или планируете заниматься?' },
@@ -67,6 +61,12 @@ const TASK_FIELDS: FieldConfig[] = [
     hint: 'Насколько сложно? Число от 1 до 10',
     rows: 1,
   },
+  {
+    key: 'pleasure',
+    label: 'Удовольствие (1-10)',
+    hint: 'Насколько приятно? Число от 1 до 10',
+    rows: 1,
+  },
 ];
 
 function getFields(type: SheetType): FieldConfig[] {
@@ -82,15 +82,94 @@ const WORD_TO_DIGIT: Record<string, string> = {
   'девять': '9', 'десять': '10',
 };
 
-const NUMERIC_FIELDS = new Set(['importance', 'difficulty']);
+const NUMERIC_FIELDS = new Set(['importance', 'difficulty', 'pleasure']);
+const TIME_FIELDS = new Set(['time']);
 
 function normalizeNumericText(text: string): string {
   const trimmed = text.trim().toLowerCase();
   if (WORD_TO_DIGIT[trimmed]) return WORD_TO_DIGIT[trimmed];
-  // extract first number if spoken as digit
   const match = trimmed.match(/\d+/);
   if (match) return match[0];
   return text.trim();
+}
+
+const HOUR_WORDS: Record<string, number> = {
+  'ноль': 0, 'нуль': 0,
+  'один': 1, 'одна': 1, 'час': 1,
+  'два': 2, 'две': 2,
+  'три': 3, 'четыре': 4, 'пять': 5,
+  'шесть': 6, 'семь': 7, 'восемь': 8,
+  'девять': 9, 'десять': 10, 'одиннадцать': 11,
+  'двенадцать': 12, 'тринадцать': 13, 'четырнадцать': 14,
+  'пятнадцать': 15, 'шестнадцать': 16, 'семнадцать': 17,
+  'восемнадцать': 18, 'девятнадцать': 19, 'двадцать': 20,
+  'двадцать один': 21, 'двадцать два': 22, 'двадцать три': 23,
+};
+
+function parseTimeToken(s: string): string | null {
+  const t = s.trim().toLowerCase();
+  if (/^\d{1,2}:\d{2}$/.test(t)) return t;
+  const n = parseInt(t, 10);
+  if (!isNaN(n) && n >= 0 && n <= 23) return `${n}:00`;
+  if (HOUR_WORDS[t] !== undefined) return `${HOUR_WORDS[t]}:00`;
+  return null;
+}
+
+function normalizeTimeText(text: string): string {
+  const raw = text.trim();
+  const t = raw.toLowerCase();
+
+  // Already formatted with colon
+  if (/^\d{1,2}:\d{2}/.test(t)) return raw.replace(/[-–]/, '–');
+
+  // "с/от X до Y"
+  const rangeRu = t.match(/(?:с|от)\s+(\S+)\s+до\s+(\S+)/);
+  if (rangeRu) {
+    const from = parseTimeToken(rangeRu[1]);
+    const to = parseTimeToken(rangeRu[2]);
+    if (from && to) return `${from}–${to}`;
+  }
+
+  // "X до Y"
+  const xToY = t.match(/^(.+?)\s+до\s+(.+)$/);
+  if (xToY) {
+    const from = parseTimeToken(xToY[1]);
+    const to = parseTimeToken(xToY[2]);
+    if (from && to) return `${from}–${to}`;
+  }
+
+  // Numeric range "14-16"
+  const numRange = t.match(/^(\d+)\s*[-–]\s*(\d+)$/);
+  if (numRange) {
+    const from = parseTimeToken(numRange[1]);
+    const to = parseTimeToken(numRange[2]);
+    if (from && to) return `${from}–${to}`;
+  }
+
+  // "в/во X"
+  const inTime = t.match(/(?:^|\s)(?:в|во)\s+(\S+)/);
+  if (inTime) {
+    const h = parseTimeToken(inTime[1]);
+    if (h) return h;
+  }
+
+  // Two numbers "14 30" → "14:30"
+  const twoNums = t.match(/^(\d{1,2})\s+(\d{2})$/);
+  if (twoNums) {
+    const h = parseInt(twoNums[1], 10);
+    const m = parseInt(twoNums[2], 10);
+    if (h >= 0 && h <= 23 && m >= 0 && m <= 59)
+      return `${h}:${String(m).padStart(2, '0')}`;
+  }
+
+  // Single token "два", "14"
+  const single = t.match(/^(\S+)(?:\s+час(?:ов|а)?)?$/);
+  if (single) {
+    const h = parseTimeToken(single[1]);
+    if (h) return h;
+  }
+
+  return raw;
 }
 
 interface Props {
@@ -156,10 +235,18 @@ export function EntryForm({ initial, initialSheetType, onSave, onCancel }: Props
     const existing = values[field.key] || '';
     start(text => {
       if (text) {
-        const normalized = NUMERIC_FIELDS.has(field.key) ? normalizeNumericText(text) : text;
+        let normalized: string;
+        if (NUMERIC_FIELDS.has(field.key)) {
+          normalized = normalizeNumericText(text);
+        } else if (TIME_FIELDS.has(field.key)) {
+          normalized = normalizeTimeText(text);
+        } else {
+          normalized = text;
+        }
+        const isReplace = NUMERIC_FIELDS.has(field.key) || TIME_FIELDS.has(field.key);
         setValues(v => ({
           ...v,
-          [field.key]: NUMERIC_FIELDS.has(field.key) ? normalized : (existing ? existing + ' ' + normalized : normalized),
+          [field.key]: isReplace ? normalized : (existing ? existing + ' ' + normalized : normalized),
         }));
       }
     });
@@ -205,6 +292,7 @@ export function EntryForm({ initial, initialSheetType, onSave, onCancel }: Props
       sphere: values.sphere || '',
       importance: values.importance || '',
       difficulty: values.difficulty || '',
+      pleasure: values.pleasure || '',
     } satisfies TaskData;
   };
 
