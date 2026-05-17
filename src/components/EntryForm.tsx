@@ -84,6 +84,72 @@ const WORD_TO_DIGIT: Record<string, string> = {
 
 const NUMERIC_FIELDS = new Set(['importance', 'difficulty', 'pleasure']);
 const TIME_FIELDS = new Set(['time']);
+const DATE_FIELDS = new Set(['date']);
+
+const RU_MONTH: Record<string, number> = {
+  'январь': 1, 'января': 1, 'январе': 1, 'янв': 1,
+  'февраль': 2, 'февраля': 2, 'феврале': 2, 'фев': 2,
+  'март': 3, 'марта': 3, 'марте': 3, 'мар': 3,
+  'апрель': 4, 'апреля': 4, 'апреле': 4, 'апр': 4,
+  'май': 5, 'мая': 5, 'мае': 5,
+  'июнь': 6, 'июня': 6, 'июне': 6, 'июн': 6,
+  'июль': 7, 'июля': 7, 'июле': 7, 'июл': 7,
+  'август': 8, 'августа': 8, 'августе': 8, 'авг': 8,
+  'сентябрь': 9, 'сентября': 9, 'сентябре': 9, 'сен': 9, 'сент': 9,
+  'октябрь': 10, 'октября': 10, 'октябре': 10, 'окт': 10,
+  'ноябрь': 11, 'ноября': 11, 'ноябре': 11, 'ноя': 11,
+  'декабрь': 12, 'декабря': 12, 'декабре': 12, 'дек': 12,
+};
+
+function normalizeDateText(text: string): string {
+  const raw = text.trim();
+  const t = raw.toLowerCase();
+  const currentYear = new Date().getFullYear();
+  const fmt = (d: number, m: number, y: number | string) =>
+    `${String(d).padStart(2, '0')}.${String(m).padStart(2, '0')}.${y}`;
+
+  // DD.MM.YYYY or DD/MM/YYYY
+  let m = t.match(/^(\d{1,2})[.\/](\d{1,2})[.\/](\d{4})$/);
+  if (m) {
+    const d = +m[1], mo = +m[2];
+    if (d >= 1 && d <= 31 && mo >= 1 && mo <= 12) return fmt(d, mo, m[3]);
+  }
+
+  // DD.MM or DD/MM
+  m = t.match(/^(\d{1,2})[.\/](\d{1,2})$/);
+  if (m) {
+    const d = +m[1], mo = +m[2];
+    if (d >= 1 && d <= 31 && mo >= 1 && mo <= 12) return fmt(d, mo, currentYear);
+  }
+
+  // "DD MM" or "DD MM YYYY"
+  m = t.match(/^(\d{1,2})\s+(\d{1,2})(?:\s+(\d{4}))?$/);
+  if (m) {
+    const d = +m[1], mo = +m[2];
+    if (d >= 1 && d <= 31 && mo >= 1 && mo <= 12) return fmt(d, mo, m[3] || currentYear);
+  }
+
+  // "DD месяц" or "DD месяц YYYY"
+  m = t.match(/^(\d{1,2})\s+([а-яё]+)(?:\s+(\d{4}))?$/);
+  if (m) {
+    const d = +m[1], mo = RU_MONTH[m[2]];
+    if (d >= 1 && d <= 31 && mo) return fmt(d, mo, m[3] || currentYear);
+  }
+
+  return raw;
+}
+
+function ddmmyyyyToIso(s: string): string {
+  const m = s.trim().match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+  if (!m) return '';
+  return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+}
+
+function isoToDdmmyyyy(s: string): string {
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return s;
+  return `${m[3]}.${m[2]}.${m[1]}`;
+}
 
 function normalizeNumericText(text: string): string {
   const trimmed = text.trim().toLowerCase();
@@ -240,10 +306,12 @@ export function EntryForm({ initial, initialSheetType, onSave, onCancel }: Props
           normalized = normalizeNumericText(text);
         } else if (TIME_FIELDS.has(field.key)) {
           normalized = normalizeTimeText(text);
+        } else if (DATE_FIELDS.has(field.key)) {
+          normalized = normalizeDateText(text);
         } else {
           normalized = text;
         }
-        const isReplace = NUMERIC_FIELDS.has(field.key) || TIME_FIELDS.has(field.key);
+        const isReplace = NUMERIC_FIELDS.has(field.key) || TIME_FIELDS.has(field.key) || DATE_FIELDS.has(field.key);
         setValues(v => ({
           ...v,
           [field.key]: isReplace ? normalized : (existing ? existing + ' ' + normalized : normalized),
@@ -359,13 +427,22 @@ export function EntryForm({ initial, initialSheetType, onSave, onCancel }: Props
           <h2 className="rec-field-label">{field.label}</h2>
           <p className="rec-field-hint">{field.hint}</p>
 
-          <textarea
-            className={`field-textarea rec-textarea${isRecording ? ' recording-border' : ''}`}
-            value={values[field.key] || ''}
-            onChange={e => setValues(v => ({ ...v, [field.key]: e.target.value }))}
-            rows={field.rows ?? 4}
-            placeholder={isRecording ? 'Слушаю…' : 'Говорите в микрофон или введите текст'}
-          />
+          {DATE_FIELDS.has(field.key) ? (
+            <input
+              type="date"
+              className={`field-textarea rec-textarea${isRecording ? ' recording-border' : ''}`}
+              value={ddmmyyyyToIso(values[field.key] || '')}
+              onChange={e => setValues(v => ({ ...v, [field.key]: isoToDdmmyyyy(e.target.value) }))}
+            />
+          ) : (
+            <textarea
+              className={`field-textarea rec-textarea${isRecording ? ' recording-border' : ''}`}
+              value={values[field.key] || ''}
+              onChange={e => setValues(v => ({ ...v, [field.key]: e.target.value }))}
+              rows={field.rows ?? 4}
+              placeholder={isRecording ? 'Слушаю…' : 'Говорите в микрофон или введите текст'}
+            />
+          )}
 
           {displayInterim && (
             <p className="interim-preview">{displayInterim}</p>
@@ -431,12 +508,21 @@ export function EntryForm({ initial, initialSheetType, onSave, onCancel }: Props
         {previewFields.map(f => (
           <div key={f.key} className="field-group">
             <label className="field-label">{f.label}</label>
-            <textarea
-              className="field-textarea"
-              value={values[f.key] || ''}
-              onChange={e => setValues(v => ({ ...v, [f.key]: e.target.value }))}
-              rows={f.rows ?? 3}
-            />
+            {DATE_FIELDS.has(f.key) ? (
+              <input
+                type="date"
+                className="field-textarea"
+                value={ddmmyyyyToIso(values[f.key] || '')}
+                onChange={e => setValues(v => ({ ...v, [f.key]: isoToDdmmyyyy(e.target.value) }))}
+              />
+            ) : (
+              <textarea
+                className="field-textarea"
+                value={values[f.key] || ''}
+                onChange={e => setValues(v => ({ ...v, [f.key]: e.target.value }))}
+                rows={f.rows ?? 3}
+              />
+            )}
           </div>
         ))}
       </div>
