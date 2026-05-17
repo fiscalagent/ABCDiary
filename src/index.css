@@ -597,6 +597,21 @@ body {
   box-shadow: 0 0 0 3px var(--abc-recording-ring);
 }
 
+.time-range-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.time-range-row > input {
+  flex: 1;
+  min-width: 0;
+}
+.time-range-sep {
+  color: var(--text-secondary);
+  font-size: 18px;
+  user-select: none;
+}
+
 .interim-preview {
   font-size: 14px;
   color: var(--text-secondary);

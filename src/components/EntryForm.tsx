@@ -139,6 +139,27 @@ function normalizeDateText(text: string): string {
   return raw;
 }
 
+function parseTimeRange(s: string): { from: string; to: string } {
+  const t = s.trim();
+  const m = t.match(/^(\d{1,2}:\d{2})\s*[–-]\s*(\d{1,2}:\d{2})$/);
+  if (m) return { from: padHm(m[1]), to: padHm(m[2]) };
+  const single = t.match(/^(\d{1,2}:\d{2})$/);
+  if (single) return { from: padHm(single[1]), to: '' };
+  return { from: '', to: '' };
+}
+
+function padHm(s: string): string {
+  const m = s.match(/^(\d{1,2}):(\d{2})$/);
+  if (!m) return s;
+  return `${m[1].padStart(2, '0')}:${m[2]}`;
+}
+
+function composeTimeRange(from: string, to: string): string {
+  if (!from && !to) return '';
+  if (from && to) return `${from}–${to}`;
+  return from || to;
+}
+
 function ddmmyyyyToIso(s: string): string {
   const m = s.trim().match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
   if (!m) return '';
@@ -236,6 +257,29 @@ function normalizeTimeText(text: string): string {
   }
 
   return raw;
+}
+
+function TimeRangeInput({ value, onChange, className }: { value: string; onChange: (v: string) => void; className?: string }) {
+  const { from, to } = parseTimeRange(value);
+  return (
+    <div className="time-range-row">
+      <input
+        type="time"
+        className={className}
+        value={from}
+        onChange={e => onChange(composeTimeRange(e.target.value, to))}
+        aria-label="С"
+      />
+      <span className="time-range-sep">–</span>
+      <input
+        type="time"
+        className={className}
+        value={to}
+        onChange={e => onChange(composeTimeRange(from, e.target.value))}
+        aria-label="До (опционально)"
+      />
+    </div>
+  );
 }
 
 interface Props {
@@ -434,6 +478,12 @@ export function EntryForm({ initial, initialSheetType, onSave, onCancel }: Props
               value={ddmmyyyyToIso(values[field.key] || '')}
               onChange={e => setValues(v => ({ ...v, [field.key]: isoToDdmmyyyy(e.target.value) }))}
             />
+          ) : TIME_FIELDS.has(field.key) ? (
+            <TimeRangeInput
+              className={`field-textarea rec-textarea${isRecording ? ' recording-border' : ''}`}
+              value={values[field.key] || ''}
+              onChange={val => setValues(v => ({ ...v, [field.key]: val }))}
+            />
           ) : (
             <textarea
               className={`field-textarea rec-textarea${isRecording ? ' recording-border' : ''}`}
@@ -514,6 +564,12 @@ export function EntryForm({ initial, initialSheetType, onSave, onCancel }: Props
                 className="field-textarea"
                 value={ddmmyyyyToIso(values[f.key] || '')}
                 onChange={e => setValues(v => ({ ...v, [f.key]: isoToDdmmyyyy(e.target.value) }))}
+              />
+            ) : TIME_FIELDS.has(f.key) ? (
+              <TimeRangeInput
+                className="field-textarea"
+                value={values[f.key] || ''}
+                onChange={val => setValues(v => ({ ...v, [f.key]: val }))}
               />
             ) : (
               <textarea
