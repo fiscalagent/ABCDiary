@@ -106,8 +106,8 @@ export function EntryList({ entries, onView, onNew, onLock, onSettings }: Props)
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   {e.sheetType === 'tasks' && (e.importance || e.difficulty || e.pleasure) && (
                     <span className="entry-card-scores">
-                      {e.importance && <span title="Важность">⭐{e.importance}</span>}
-                      {e.difficulty && <span title="Сложность">🔥{e.difficulty}</span>}
+                      {e.importance && <span title="Важность">❗{e.importance}</span>}
+                      {e.difficulty && <span title="Сложность">💪{e.difficulty}</span>}
                       {e.pleasure && <span title="Удовольствие">😊{e.pleasure}</span>}
                     </span>
                   )}
