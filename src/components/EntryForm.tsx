@@ -456,11 +456,16 @@ export function EntryForm({ initial, initialSheetType, onSave, onCancel }: Props
     return (
       <div className="screen">
         <header className="app-header">
-          <button className="text-btn" onClick={() => { stop(); setPhase('select'); }}>Отмена</button>
+          <button className="text-btn" onClick={goPrev}>
+            {fieldIdx === 0 ? 'Отмена' : '← Назад'}
+          </button>
           <span className="header-title">
             {sheetType === 'emotions' ? '💭 Эмоции' : '✅ Дела'}
+            <span className="step-indicator-inline"> · {fieldIdx + 1}/{fields.length}</span>
           </span>
-          <span className="step-indicator">{fieldIdx + 1}/{fields.length}</span>
+          <button className="text-btn primary" onClick={goNext}>
+            {isLast ? 'Готово →' : 'Далее →'}
+          </button>
         </header>
 
         <div className="progress-track-outer">
@@ -526,12 +531,6 @@ export function EntryForm({ initial, initialSheetType, onSave, onCancel }: Props
           )}
         </div>
 
-        <div className="rec-nav">
-          <button className="text-btn" onClick={goPrev}>← Назад</button>
-          <button className="text-btn primary" onClick={goNext}>
-            {isLast ? 'Проверить →' : 'Далее →'}
-          </button>
-        </div>
       </div>
     );
   }
