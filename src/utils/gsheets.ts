@@ -17,6 +17,7 @@ interface GoogleTokenClientConfig {
   client_id: string;
   scope: string;
   callback: ((response: TokenResponse) => void) | '';
+  login_hint?: string;
 }
 
 interface TokenClient {
@@ -39,6 +40,7 @@ const GOOGLE_CLIENT_ID = '370573440901-0stejge8ol4dp528e5tqgg6akl4mboim.apps.goo
 const SCOPE = 'https://www.googleapis.com/auth/spreadsheets';
 const SHEETS_BASE = 'https://sheets.googleapis.com/v4/spreadsheets';
 const CONFIG_KEY = 'abcdiary_google_config';
+const ACCOUNT_HINT_KEY = 'abcdiary_google_account';
 
 let tokenClient: TokenClient | null = null;
 let accessToken = '';
@@ -67,10 +69,12 @@ export function clearGoogleConfig(): void {
 
 export function initGoogleAuth(): boolean {
   if (!window.google) return false;
+  const login_hint = localStorage.getItem(ACCOUNT_HINT_KEY) ?? undefined;
   tokenClient = window.google.accounts.oauth2.initTokenClient({
     client_id: GOOGLE_CLIENT_ID,
     scope: SCOPE,
     callback: '',
+    ...(login_hint ? { login_hint } : {}),
   });
   return true;
 }
@@ -82,6 +86,7 @@ export function revokeGoogleToken(): void {
   accessToken = '';
   tokenExpiry = 0;
   tokenClient = null;
+  localStorage.removeItem(ACCOUNT_HINT_KEY);
 }
 
 async function waitForToken(): Promise<string> {
@@ -102,6 +107,17 @@ async function waitForToken(): Promise<string> {
       }
       accessToken = resp.access_token;
       tokenExpiry = Date.now() + resp.expires_in * 1000 - 60_000;
+      // Save account hint so next session skips the account picker
+      if (!localStorage.getItem(ACCOUNT_HINT_KEY)) {
+        fetch('https://www.googleapis.com/oauth2/v1/userinfo', {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        })
+          .then(r => r.json())
+          .then((info: { email?: string }) => {
+            if (info.email) localStorage.setItem(ACCOUNT_HINT_KEY, info.email);
+          })
+          .catch(() => {});
+      }
       resolve(accessToken);
     };
     tokenClient!.requestAccessToken({ prompt: '' });
