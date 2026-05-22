@@ -13,14 +13,17 @@ concurrency:
   group: pages
   cancel-in-progress: true
 
+# Run bundled actions that still target Node 20 (upload-pages-artifact,
+# deploy-pages) on Node 24 until they ship native Node 24 releases.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 24
           cache: npm
