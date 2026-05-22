@@ -14,7 +14,7 @@ const EMOTION_FIELDS: FieldConfig[] = [
   {
     key: 'time',
     label: 'Время',
-    hint: 'Например: «14:30», «в два», «с 14 до 16»',
+    hint: 'Например: «14:30», «в два», «с 14 30 до 15 30»',
     rows: 1,
   },
   {
@@ -33,7 +33,7 @@ const TASK_FIELDS: FieldConfig[] = [
   {
     key: 'time',
     label: 'Время',
-    hint: 'Например: «14:30», «в два», «с 14 до 16»',
+    hint: 'Например: «14:30», «в два», «с 14 30 до 15 30»',
     rows: 1,
   },
   {
@@ -180,80 +180,124 @@ function normalizeNumericText(text: string): string {
   return text.trim();
 }
 
-const HOUR_WORDS: Record<string, number> = {
+// Russian cardinal number words 0..50 (units, teens, tens) we may hear in spoken time.
+const NUM_WORD: Record<string, number> = {
   'ноль': 0, 'нуль': 0,
   'один': 1, 'одна': 1, 'час': 1,
-  'два': 2, 'две': 2,
-  'три': 3, 'четыре': 4, 'пять': 5,
-  'шесть': 6, 'семь': 7, 'восемь': 8,
-  'девять': 9, 'десять': 10, 'одиннадцать': 11,
-  'двенадцать': 12, 'тринадцать': 13, 'четырнадцать': 14,
-  'пятнадцать': 15, 'шестнадцать': 16, 'семнадцать': 17,
-  'восемнадцать': 18, 'девятнадцать': 19, 'двадцать': 20,
-  'двадцать один': 21, 'двадцать два': 22, 'двадцать три': 23,
+  'два': 2, 'две': 2, 'три': 3, 'четыре': 4, 'пять': 5,
+  'шесть': 6, 'семь': 7, 'восемь': 8, 'девять': 9, 'десять': 10,
+  'одиннадцать': 11, 'двенадцать': 12, 'тринадцать': 13, 'четырнадцать': 14,
+  'пятнадцать': 15, 'шестнадцать': 16, 'семнадцать': 17, 'восемнадцать': 18,
+  'девятнадцать': 19, 'двадцать': 20, 'тридцать': 30, 'сорок': 40, 'пятьдесят': 50,
 };
 
-function parseTimeToken(s: string): string | null {
-  const t = s.trim().toLowerCase();
-  if (/^\d{1,2}:\d{2}$/.test(t)) return t;
-  const n = parseInt(t, 10);
-  if (!isNaN(n) && n >= 0 && n <= 23) return `${n}:00`;
-  if (HOUR_WORDS[t] !== undefined) return `${HOUR_WORDS[t]}:00`;
+function validHm(h: number, m: number): { h: number; m: number } | null {
+  return h >= 0 && h <= 23 && m >= 0 && m <= 59 ? { h, m } : null;
+}
+
+// Half-hour precision is enough — snap minutes to :00 / :30.
+function snapHm(h: number, m: number): string {
+  let mm = m < 15 ? 0 : m < 45 ? 30 : 60;
+  let hh = h;
+  if (mm === 60) { mm = 0; hh = (h + 1) % 24; }
+  return `${hh}:${String(mm).padStart(2, '0')}`;
+}
+
+// Collapse a sequence of number words into numbers, merging "tens + unit"
+// (e.g. ["двадцать","три"] → [23], ["четырнадцать","тридцать"] → [14, 30]).
+function groupNumberWords(words: string[]): number[] | null {
+  const out: number[] = [];
+  for (let i = 0; i < words.length; i++) {
+    const v = NUM_WORD[words[i]];
+    if (v === undefined) return null;
+    const next = i + 1 < words.length ? NUM_WORD[words[i + 1]] : undefined;
+    if ((v === 20 || v === 30 || v === 40 || v === 50) && next !== undefined && next >= 1 && next <= 9) {
+      out.push(v + next);
+      i++;
+    } else {
+      out.push(v);
+    }
+  }
+  return out;
+}
+
+// Extract raw hour/minute from one time token (no rounding), or null if it isn't a time.
+// Handles: "14:30", "14.30", "1430", "14 30", "14", and spoken words
+// like "четырнадцать тридцать", "два", "двадцать один".
+function extractHm(s: string): { h: number; m: number } | null {
+  const t = s
+    .trim()
+    .toLowerCase()
+    .replace(/\bчас(?:ов|а)?\b/g, ' ')
+    .replace(/\bминут(?:ы|у)?\b/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!t) return null;
+
+  // "14:30" / "14.30"
+  let m = t.match(/^(\d{1,2})[:.](\d{2})$/);
+  if (m) return validHm(+m[1], +m[2]);
+
+  // glued "1430" / "930"
+  m = t.match(/^(\d{3,4})$/);
+  if (m) {
+    const r = validHm(+m[1].slice(0, -2), +m[1].slice(-2));
+    if (r) return r;
+  }
+
+  // two number groups "14 30"
+  m = t.match(/^(\d{1,2})\s+(\d{1,2})$/);
+  if (m) return validHm(+m[1], +m[2]);
+
+  // single number = whole hour "14"
+  m = t.match(/^(\d{1,2})$/);
+  if (m) return validHm(+m[1], 0);
+
+  // spoken words
+  const groups = groupNumberWords(t.split(' '));
+  if (groups) {
+    if (groups.length === 1) return validHm(groups[0], 0);
+    if (groups.length === 2) return validHm(groups[0], groups[1]);
+  }
   return null;
+}
+
+// One side of a range → snapped "H:MM", or null.
+function parseTimeToken(s: string): string | null {
+  const hm = extractHm(s);
+  return hm ? snapHm(hm.h, hm.m) : null;
 }
 
 function normalizeTimeText(text: string): string {
   const raw = text.trim();
-  const t = raw.toLowerCase();
+  const t = raw.toLowerCase().replace(/[—]/g, '-').replace(/\s+/g, ' ').trim();
+  if (!t) return raw;
 
-  // Already formatted with colon
-  if (/^\d{1,2}:\d{2}/.test(t)) return raw.replace(/[-–]/, '–');
+  // Range "[с/со/от] X до Y" — each side may be multi-word ("с 14 30 до 15 30").
+  if (/\sдо\s/.test(t)) {
+    const [left, right] = t.split(/\s+до\s+/);
+    const from = parseTimeToken(left.replace(/^(?:с|со|от)\s+/, ''));
+    const to = parseTimeToken(right);
+    if (from && to) return `${from}–${to}`;
+    if (from) return from;
+  }
 
-  // "с/от X до Y"
-  const rangeRu = t.match(/(?:с|от)\s+(\S+)\s+до\s+(\S+)/);
-  if (rangeRu) {
-    const from = parseTimeToken(rangeRu[1]);
-    const to = parseTimeToken(rangeRu[2]);
+  // Dash range "14-16", "14:30-15:30", "14 30 - 15 30".
+  if (t.includes('-')) {
+    const [left, right] = t.split('-');
+    const from = parseTimeToken(left);
+    const to = parseTimeToken(right);
     if (from && to) return `${from}–${to}`;
   }
 
-  // "X до Y"
-  const xToY = t.match(/^(.+?)\s+до\s+(.+)$/);
-  if (xToY) {
-    const from = parseTimeToken(xToY[1]);
-    const to = parseTimeToken(xToY[2]);
-    if (from && to) return `${from}–${to}`;
-  }
-
-  // Numeric range "14-16"
-  const numRange = t.match(/^(\d+)\s*[-–]\s*(\d+)$/);
-  if (numRange) {
-    const from = parseTimeToken(numRange[1]);
-    const to = parseTimeToken(numRange[2]);
-    if (from && to) return `${from}–${to}`;
-  }
-
-  // "в/во X"
-  const inTime = t.match(/(?:^|\s)(?:в|во)\s+(\S+)/);
-  if (inTime) {
-    const h = parseTimeToken(inTime[1]);
-    if (h) return h;
-  }
-
-  // Two numbers "14 30" → "14:30"
-  const twoNums = t.match(/^(\d{1,2})\s+(\d{2})$/);
-  if (twoNums) {
-    const h = parseInt(twoNums[1], 10);
-    const m = parseInt(twoNums[2], 10);
-    if (h >= 0 && h <= 23 && m >= 0 && m <= 59)
-      return `${h}:${String(m).padStart(2, '0')}`;
-  }
-
-  // Single token "два", "14"
-  const single = t.match(/^(\S+)(?:\s+час(?:ов|а)?)?$/);
-  if (single) {
-    const h = parseTimeToken(single[1]);
-    if (h) return h;
+  // Single time, optionally "в/во X".
+  const hm = extractHm(t.replace(/^(?:в|во)\s+/, ''));
+  if (hm) {
+    const { h, m } = hm;
+    // Minutes are only ever :00 or :30. A "minute" like 23 that is itself a valid
+    // later hour means the «до» was lost — e.g. "22 23" → range 22:00–23:00.
+    if (m !== 0 && m !== 30 && m <= 23 && m > h) return `${h}:00–${m}:00`;
+    return snapHm(h, m);
   }
 
   return raw;
@@ -409,6 +453,7 @@ export function EntryForm({ initial, initialSheetType, onSave, onCancel }: Props
   };
 
   const handleSave = async () => {
+    if (status === 'recording') stop();
     setSaving(true);
     await onSave(buildData());
     setSaving(false);
@@ -456,16 +501,10 @@ export function EntryForm({ initial, initialSheetType, onSave, onCancel }: Props
     return (
       <div className="screen">
         <header className="app-header">
-          <button className="text-btn" onClick={goPrev}>
-            {fieldIdx === 0 ? 'Отмена' : '← Назад'}
-          </button>
           <span className="header-title">
             {sheetType === 'emotions' ? '💭 Эмоции' : '✅ Дела'}
             <span className="step-indicator-inline"> · {fieldIdx + 1}/{fields.length}</span>
           </span>
-          <button className="text-btn primary" onClick={goNext}>
-            {isLast ? 'Готово →' : 'Далее →'}
-          </button>
         </header>
 
         <div className="progress-track-outer">
@@ -509,26 +548,42 @@ export function EntryForm({ initial, initialSheetType, onSave, onCancel }: Props
             </p>
           )}
 
-          {supported && (
-            <div className="mic-area">
-              <button
-                className={`mic-button${isRecording ? ' recording' : ''}`}
-                onClick={handleMic}
-                aria-label={isRecording ? 'Остановить запись' : 'Начать запись'}
-              >
-                <span className="mic-emoji">🎙</span>
-                {isRecording && (
-                  <>
-                    <div className="mic-ring r1" />
-                    <div className="mic-ring r2" />
-                  </>
-                )}
+          <div className="mic-area">
+            <div className="mic-nav-row">
+              <button className="nav-side-btn" onClick={goPrev}>
+                {fieldIdx === 0 ? '✕ Отмена' : '← Назад'}
               </button>
+              {supported ? (
+                <button
+                  className={`mic-button${isRecording ? ' recording' : ''}`}
+                  onClick={handleMic}
+                  aria-label={isRecording ? 'Остановить запись' : 'Начать запись'}
+                >
+                  <span className="mic-emoji">🎙</span>
+                  {isRecording && (
+                    <>
+                      <div className="mic-ring r1" />
+                      <div className="mic-ring r2" />
+                    </>
+                  )}
+                </button>
+              ) : (
+                <span className="mic-button-spacer" />
+              )}
+              <button
+                className="nav-side-btn primary"
+                onClick={isLast ? handleSave : goNext}
+                disabled={saving}
+              >
+                {isLast ? (saving ? '…' : 'Сохранить') : 'Далее →'}
+              </button>
+            </div>
+            {supported && (
               <p className="mic-status-text">
                 {isRecording ? 'Говорите… (нажмите чтобы остановить)' : 'Нажмите для голосового ввода'}
               </p>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
       </div>

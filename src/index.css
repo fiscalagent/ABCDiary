@@ -645,6 +645,46 @@ body {
   padding: 8px 0;
 }
 
+/* Back / mic / Next-Save row */
+.mic-nav-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  width: 100%;
+}
+
+.nav-side-btn {
+  flex: 1 1 0;
+  max-width: 130px;
+  min-height: 56px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--primary);
+  font-size: 16px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s, opacity 0.15s;
+}
+
+.nav-side-btn.primary {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: white;
+}
+
+.nav-side-btn:active { opacity: 0.8; }
+.nav-side-btn:disabled { opacity: 0.5; cursor: default; }
+
+.mic-button-spacer {
+  width: 72px;
+  height: 72px;
+  flex-shrink: 0;
+}
+
 .mic-button {
   position: relative;
   width: 72px;
