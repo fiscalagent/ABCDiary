@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type { EntryData, EmotionData, TaskData, SheetType, DiaryEntry } from '../types';
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
 
@@ -160,17 +160,22 @@ function composeTimeRange(from: string, to: string): string {
   return from || to;
 }
 
-function ddmmyyyyToIso(s: string): string {
+function ddmmyyyyToDate(s: string): Date | null {
   const m = s.trim().match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
-  if (!m) return '';
-  return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+  if (!m) return null;
+  const d = new Date(+m[3], +m[2] - 1, +m[1]);
+  return isNaN(d.getTime()) ? null : d;
 }
 
-function isoToDdmmyyyy(s: string): string {
-  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!m) return s;
-  return `${m[3]}.${m[2]}.${m[1]}`;
+function dateToDdmmyyyy(d: Date): string {
+  return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}`;
 }
+
+const WEEKDAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+const MONTHS_RU = [
+  'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
+  'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь',
+];
 
 function normalizeNumericText(text: string): string {
   const trimmed = text.trim().toLowerCase();
@@ -303,25 +308,163 @@ function normalizeTimeText(text: string): string {
   return raw;
 }
 
+// Half-hour slots for the whole day: "00:00", "00:30" … "23:30".
+const HALF_HOUR_SLOTS: string[] = (() => {
+  const out: string[] = [];
+  for (let h = 0; h < 24; h++) {
+    const hh = String(h).padStart(2, '0');
+    out.push(`${hh}:00`, `${hh}:30`);
+  }
+  return out;
+})();
+
 function TimeRangeInput({ value, onChange, className }: { value: string; onChange: (v: string) => void; className?: string }) {
   const { from, to } = parseTimeRange(value);
+  const [open, setOpen] = useState(false);
+  const fromRef = useRef<HTMLButtonElement>(null);
+  const toRef = useRef<HTMLButtonElement>(null);
+
+  // Centre the selected slots when the picker opens.
+  useEffect(() => {
+    if (open) {
+      fromRef.current?.scrollIntoView({ block: 'center' });
+      toRef.current?.scrollIntoView({ block: 'center' });
+    }
+  }, [open]);
+
+  const pickFrom = (t: string) => onChange(composeTimeRange(t, to));
+  // Tapping the already-selected "to" clears it (the end is optional).
+  const pickTo = (t: string) => onChange(composeTimeRange(from, t === to ? '' : t));
+
+  const label = from ? (to ? `${from} – ${to}` : from) : 'Выбрать время';
+
+  const column = (
+    side: 'from' | 'to',
+    selected: string,
+    onPick: (t: string) => void,
+    ref: React.RefObject<HTMLButtonElement | null>
+  ) => (
+    <div className="time-col">
+      <div className="time-col-head">
+        {side === 'from' ? 'С' : <>До <span className="time-col-opt">(опц.)</span></>}
+      </div>
+      <div className="time-col-list">
+        {HALF_HOUR_SLOTS.map(t => (
+          <button
+            type="button"
+            key={t}
+            ref={t === selected ? ref : undefined}
+            className={`time-slot${t === selected ? ' selected' : ''}`}
+            onClick={() => onPick(t)}
+          >
+            {t}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
   return (
-    <div className="time-range-row">
-      <input
-        type="time"
-        className={className}
-        value={from}
-        onChange={e => onChange(composeTimeRange(e.target.value, to))}
-        aria-label="С"
-      />
-      <span className="time-range-sep">–</span>
-      <input
-        type="time"
-        className={className}
-        value={to}
-        onChange={e => onChange(composeTimeRange(from, e.target.value))}
-        aria-label="До (опционально)"
-      />
+    <div className="time-input">
+      <button
+        type="button"
+        className={`date-display-btn${className ? ' ' + className : ''}`}
+        onClick={() => setOpen(o => !o)}
+      >
+        {label}
+        <span className="date-caret">{open ? '▲' : '▼'}</span>
+      </button>
+      {open && (
+        <div className="time-pop">
+          {column('from', from, pickFrom, fromRef)}
+          {column('to', to, pickTo, toRef)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DateInput({ value, onChange, className }: { value: string; onChange: (v: string) => void; className?: string }) {
+  const selected = ddmmyyyyToDate(value);
+  const [open, setOpen] = useState(false);
+  const [view, setView] = useState(() => {
+    const base = selected ?? new Date();
+    return { y: base.getFullYear(), m: base.getMonth() };
+  });
+
+  // Follow the selected date when it jumps to another month (preset / voice input).
+  useEffect(() => {
+    const d = ddmmyyyyToDate(value);
+    if (d) setView({ y: d.getFullYear(), m: d.getMonth() });
+  }, [value]);
+
+  const setToday = () => onChange(dateToDdmmyyyy(new Date()));
+  const setYesterday = () => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    onChange(dateToDdmmyyyy(d));
+  };
+  const pick = (day: number) => {
+    onChange(dateToDdmmyyyy(new Date(view.y, view.m, day)));
+    setOpen(false);
+  };
+  const prevMonth = () => setView(v => (v.m === 0 ? { y: v.y - 1, m: 11 } : { y: v.y, m: v.m - 1 }));
+  const nextMonth = () => setView(v => (v.m === 11 ? { y: v.y + 1, m: 0 } : { y: v.y, m: v.m + 1 }));
+
+  const startDow = (new Date(view.y, view.m, 1).getDay() + 6) % 7; // Monday = 0
+  const daysInMonth = new Date(view.y, view.m + 1, 0).getDate();
+  const cells: (number | null)[] = [];
+  for (let i = 0; i < startDow; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+
+  const today = new Date();
+  const isToday = (d: number) =>
+    d === today.getDate() && view.m === today.getMonth() && view.y === today.getFullYear();
+  const isSel = (d: number) =>
+    !!selected && d === selected.getDate() && view.m === selected.getMonth() && view.y === selected.getFullYear();
+
+  return (
+    <div className="date-input">
+      <div className="date-preset-row">
+        <button type="button" className="date-preset-btn" onClick={setToday}>Сегодня</button>
+        <button type="button" className="date-preset-btn" onClick={setYesterday}>Вчера</button>
+        <button
+          type="button"
+          className={`date-display-btn${className ? ' ' + className : ''}`}
+          onClick={() => setOpen(o => !o)}
+        >
+          {value || 'Выбрать дату'}
+          <span className="date-caret">{open ? '▲' : '▼'}</span>
+        </button>
+      </div>
+      {open && (
+        <div className="date-cal">
+          <div className="date-cal-head">
+            <button type="button" className="date-cal-nav" onClick={prevMonth} aria-label="Предыдущий месяц">‹</button>
+            <span className="date-cal-title">{MONTHS_RU[view.m]} {view.y}</span>
+            <button type="button" className="date-cal-nav" onClick={nextMonth} aria-label="Следующий месяц">›</button>
+          </div>
+          <div className="date-cal-weekdays">
+            {WEEKDAYS.map(w => <span key={w} className="date-cal-wd">{w}</span>)}
+          </div>
+          <div className="date-cal-grid">
+            {cells.map((d, i) =>
+              d === null ? (
+                <span key={`e${i}`} className="date-cal-cell empty" />
+              ) : (
+                <button
+                  type="button"
+                  key={d}
+                  className={`date-cal-cell${isSel(d) ? ' selected' : ''}${isToday(d) ? ' today' : ''}`}
+                  onClick={() => pick(d)}
+                >
+                  {d}
+                </button>
+              )
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -516,11 +659,10 @@ export function EntryForm({ initial, initialSheetType, onSave, onCancel }: Props
           <p className="rec-field-hint">{field.hint}</p>
 
           {DATE_FIELDS.has(field.key) ? (
-            <input
-              type="date"
-              className={`field-textarea rec-textarea${isRecording ? ' recording-border' : ''}`}
-              value={ddmmyyyyToIso(values[field.key] || '')}
-              onChange={e => setValues(v => ({ ...v, [field.key]: isoToDdmmyyyy(e.target.value) }))}
+            <DateInput
+              className={isRecording ? 'recording-border' : ''}
+              value={values[field.key] || ''}
+              onChange={val => setValues(v => ({ ...v, [field.key]: val }))}
             />
           ) : TIME_FIELDS.has(field.key) ? (
             <TimeRangeInput
@@ -613,11 +755,9 @@ export function EntryForm({ initial, initialSheetType, onSave, onCancel }: Props
           <div key={f.key} className="field-group">
             <label className="field-label">{f.label}</label>
             {DATE_FIELDS.has(f.key) ? (
-              <input
-                type="date"
-                className="field-textarea"
-                value={ddmmyyyyToIso(values[f.key] || '')}
-                onChange={e => setValues(v => ({ ...v, [f.key]: isoToDdmmyyyy(e.target.value) }))}
+              <DateInput
+                value={values[f.key] || ''}
+                onChange={val => setValues(v => ({ ...v, [f.key]: val }))}
               />
             ) : TIME_FIELDS.has(f.key) ? (
               <TimeRangeInput

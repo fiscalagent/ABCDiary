@@ -618,6 +618,161 @@ body {
   user-select: none;
 }
 
+/* ── Custom date picker ── */
+.date-input {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.date-preset-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.date-preset-btn {
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--abc-radius-pill);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 14px;
+  cursor: pointer;
+  transition: background var(--abc-dur-fast);
+}
+.date-preset-btn:active { background: var(--abc-primary-tint); }
+.date-display-btn {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 16px;
+  cursor: pointer;
+}
+.date-display-btn.recording-border { border-color: var(--abc-danger, #d9534f); }
+.date-caret { color: var(--text-secondary); font-size: 11px; }
+
+.date-cal {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 10px;
+}
+.date-cal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.date-cal-title { font-size: 15px; font-weight: 600; color: var(--text); }
+.date-cal-nav {
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: var(--abc-radius-sm);
+  background: transparent;
+  color: var(--text);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+.date-cal-nav:active { background: var(--border); }
+.date-cal-weekdays,
+.date-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+.date-cal-wd {
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-secondary);
+  padding: 4px 0;
+}
+.date-cal-cell {
+  aspect-ratio: 1;
+  border: none;
+  border-radius: var(--abc-radius-sm);
+  background: transparent;
+  color: var(--text);
+  font-size: 15px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.date-cal-cell.empty { cursor: default; }
+.date-cal-cell:not(.empty):active { background: var(--abc-primary-tint); }
+.date-cal-cell.today { box-shadow: inset 0 0 0 1px var(--primary); }
+.date-cal-cell.selected {
+  background: var(--primary);
+  color: #fff;
+  font-weight: 600;
+}
+
+/* ── Custom time picker (half-hour slots) ── */
+.time-input {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.time-pop {
+  display: flex;
+  gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 10px;
+}
+.time-col {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.time-col-head {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  text-align: center;
+  padding-bottom: 6px;
+}
+.time-col-opt {
+  font-weight: 400;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+.time-col-list {
+  max-height: 220px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  -webkit-overflow-scrolling: touch;
+}
+.time-slot {
+  padding: 9px 0;
+  border: none;
+  border-radius: var(--abc-radius-sm);
+  background: transparent;
+  color: var(--text);
+  font-size: 16px;
+  text-align: center;
+  cursor: pointer;
+}
+.time-slot:active { background: var(--abc-primary-tint); }
+.time-slot.selected {
+  background: var(--primary);
+  color: #fff;
+  font-weight: 600;
+}
+
 .interim-preview {
   font-size: 14px;
   color: var(--text-secondary);
