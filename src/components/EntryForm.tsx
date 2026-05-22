@@ -14,7 +14,7 @@ const EMOTION_FIELDS: FieldConfig[] = [
   {
     key: 'time',
     label: 'Время',
-    hint: 'Например: «14:30», «в два», «с 14 30 до 15 30»',
+    hint: 'Например: «14:30», «девять тридцать десять» → 09:30–10:00',
     rows: 1,
   },
   {
@@ -33,7 +33,7 @@ const TASK_FIELDS: FieldConfig[] = [
   {
     key: 'time',
     label: 'Время',
-    hint: 'Например: «14:30», «в два», «с 14 30 до 15 30»',
+    hint: 'Например: «14:30», «девять тридцать десять» → 09:30–10:00',
     rows: 1,
   },
   {
@@ -196,18 +196,6 @@ const NUM_WORD: Record<string, number> = {
   'девятнадцать': 19, 'двадцать': 20, 'тридцать': 30, 'сорок': 40, 'пятьдесят': 50,
 };
 
-function validHm(h: number, m: number): { h: number; m: number } | null {
-  return h >= 0 && h <= 23 && m >= 0 && m <= 59 ? { h, m } : null;
-}
-
-// Half-hour precision is enough — snap minutes to :00 / :30.
-function snapHm(h: number, m: number): string {
-  let mm = m < 15 ? 0 : m < 45 ? 30 : 60;
-  let hh = h;
-  if (mm === 60) { mm = 0; hh = (h + 1) % 24; }
-  return `${hh}:${String(mm).padStart(2, '0')}`;
-}
-
 // Collapse a sequence of number words into numbers, merging "tens + unit"
 // (e.g. ["двадцать","три"] → [23], ["четырнадцать","тридцать"] → [14, 30]).
 function groupNumberWords(words: string[]): number[] | null {
@@ -226,85 +214,73 @@ function groupNumberWords(words: string[]): number[] | null {
   return out;
 }
 
-// Extract raw hour/minute from one time token (no rounding), or null if it isn't a time.
-// Handles: "14:30", "14.30", "1430", "14 30", "14", and spoken words
-// like "четырнадцать тридцать", "два", "двадцать один".
-function extractHm(s: string): { h: number; m: number } | null {
-  const t = s
-    .trim()
-    .toLowerCase()
-    .replace(/\bчас(?:ов|а)?\b/g, ' ')
-    .replace(/\bминут(?:ы|у)?\b/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-  if (!t) return null;
-
-  // "14:30" / "14.30"
-  let m = t.match(/^(\d{1,2})[:.](\d{2})$/);
-  if (m) return validHm(+m[1], +m[2]);
-
-  // glued "1430" / "930"
-  m = t.match(/^(\d{3,4})$/);
-  if (m) {
-    const r = validHm(+m[1].slice(0, -2), +m[1].slice(-2));
-    if (r) return r;
+// Flatten a cleaned time phrase into a flat list of numbers. Digit ("14"),
+// glued ("1430"), colon ("14:30") and spoken-word forms all reduce to the same
+// number stream; a colon/glued time contributes its hour and minute as two
+// consecutive numbers. Returns null if any token isn't a number.
+function toNumberList(t: string): number[] | null {
+  const nums: number[] = [];
+  const wordBuf: string[] = [];
+  const flush = (): boolean => {
+    if (!wordBuf.length) return true;
+    const g = groupNumberWords(wordBuf);
+    wordBuf.length = 0;
+    if (!g) return false;
+    nums.push(...g);
+    return true;
+  };
+  for (const tok of t.split(' ')) {
+    if (!tok) continue;
+    let m = tok.match(/^(\d{1,2})[:.](\d{2})$/); // "14:30" / "14.30"
+    if (m) { if (!flush()) return null; nums.push(+m[1], +m[2]); continue; }
+    m = tok.match(/^(\d{3,4})$/); // glued "1430" / "930"
+    if (m) { if (!flush()) return null; nums.push(+m[1].slice(0, -2), +m[1].slice(-2)); continue; }
+    if (/^\d{1,2}$/.test(tok)) { if (!flush()) return null; nums.push(+tok); continue; }
+    if (NUM_WORD[tok] === undefined) return null;
+    wordBuf.push(tok);
   }
-
-  // two number groups "14 30"
-  m = t.match(/^(\d{1,2})\s+(\d{1,2})$/);
-  if (m) return validHm(+m[1], +m[2]);
-
-  // single number = whole hour "14"
-  m = t.match(/^(\d{1,2})$/);
-  if (m) return validHm(+m[1], 0);
-
-  // spoken words
-  const groups = groupNumberWords(t.split(' '));
-  if (groups) {
-    if (groups.length === 1) return validHm(groups[0], 0);
-    if (groups.length === 2) return validHm(groups[0], groups[1]);
-  }
-  return null;
+  return flush() ? nums : null;
 }
 
-// One side of a range → snapped "H:MM", or null.
-function parseTimeToken(s: string): string | null {
-  const hm = extractHm(s);
-  return hm ? snapHm(hm.h, hm.m) : null;
+// Consume a number stream into up to two zero-padded "HH:MM" times.
+// Minutes are only ever :00 or :30, so a following number binds as minutes only
+// when it is exactly 0 or 30 — any other number starts the next time (the end of
+// an implicit range, e.g. "девять тридцать десять" → 09:30 + 10:00, "22 23" →
+// 22:00 + 23:00). Trailing zeros after a minute absorb spoken "ноль ноль" (= :00).
+function parseTimes(t: string): string[] {
+  const nums = toNumberList(t);
+  if (!nums) return [];
+  const out: string[] = [];
+  let i = 0;
+  while (i < nums.length && out.length < 2) {
+    const h = nums[i++];
+    if (h < 0 || h > 23) break;
+    let m = 0;
+    if (i < nums.length && (nums[i] === 0 || nums[i] === 30)) {
+      m = nums[i++];
+      while (i < nums.length && nums[i] === 0) i++;
+    }
+    out.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
+  }
+  return out;
 }
 
 function normalizeTimeText(text: string): string {
   const raw = text.trim();
-  const t = raw.toLowerCase().replace(/[—]/g, '-').replace(/\s+/g, ' ').trim();
+  // Treat dashes as separators so "14-16" / "14:30-15:30" join the number stream.
+  const t = raw.toLowerCase().replace(/[—–-]/g, ' ').replace(/\s+/g, ' ').trim();
   if (!t) return raw;
 
-  // Range "[с/со/от] X до Y" — each side may be multi-word ("с 14 30 до 15 30").
-  if (/\sдо\s/.test(t)) {
-    const [left, right] = t.split(/\s+до\s+/);
-    const from = parseTimeToken(left.replace(/^(?:с|со|от)\s+/, ''));
-    const to = parseTimeToken(right);
-    if (from && to) return `${from}–${to}`;
-    if (from) return from;
-  }
+  // "[с/со/от] X до Y" — drop the framing words; both sides feed one number stream.
+  const doParts = t.split(/\s+до\s+/);
+  const body =
+    doParts.length === 2
+      ? `${doParts[0].replace(/^(?:с|со|от)\s+/, '')} ${doParts[1]}`
+      : t.replace(/^(?:в|во|с|со|от)\s+/, '');
 
-  // Dash range "14-16", "14:30-15:30", "14 30 - 15 30".
-  if (t.includes('-')) {
-    const [left, right] = t.split('-');
-    const from = parseTimeToken(left);
-    const to = parseTimeToken(right);
-    if (from && to) return `${from}–${to}`;
-  }
-
-  // Single time, optionally "в/во X".
-  const hm = extractHm(t.replace(/^(?:в|во)\s+/, ''));
-  if (hm) {
-    const { h, m } = hm;
-    // Minutes are only ever :00 or :30. A "minute" like 23 that is itself a valid
-    // later hour means the «до» was lost — e.g. "22 23" → range 22:00–23:00.
-    if (m !== 0 && m !== 30 && m <= 23 && m > h) return `${h}:00–${m}:00`;
-    return snapHm(h, m);
-  }
-
+  const times = parseTimes(body);
+  if (times.length >= 2) return `${times[0]}–${times[1]}`;
+  if (times.length === 1) return times[0];
   return raw;
 }
 
