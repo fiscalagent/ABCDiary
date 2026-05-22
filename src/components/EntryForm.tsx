@@ -20,7 +20,8 @@ const EMOTION_FIELDS: FieldConfig[] = [
   {
     key: 'date',
     label: 'Дата',
-    hint: 'Скажите или введите дату',
+    hint: 'Скажите «сегодня», «вчера» или дату',
+    autoFill: () => dateToDdmmyyyy(new Date()),
     rows: 1,
   },
   { key: 'situation', label: 'Триггерная ситуация', hint: 'Опишите ситуацию, которая произошла' },
@@ -39,7 +40,8 @@ const TASK_FIELDS: FieldConfig[] = [
   {
     key: 'date',
     label: 'Дата',
-    hint: 'Скажите или введите дату',
+    hint: 'Скажите «сегодня», «вчера» или дату',
+    autoFill: () => dateToDdmmyyyy(new Date()),
     rows: 1,
   },
   { key: 'activity', label: 'Занятие', hint: 'Чем занимались или планируете заниматься?' },
@@ -103,10 +105,18 @@ const RU_MONTH: Record<string, number> = {
 
 function normalizeDateText(text: string): string {
   const raw = text.trim();
-  const t = raw.toLowerCase();
+  const t = raw.toLowerCase().replace(/[.!?]+$/, '').trim();
   const currentYear = new Date().getFullYear();
   const fmt = (d: number, m: number, y: number | string) =>
     `${String(d).padStart(2, '0')}.${String(m).padStart(2, '0')}.${y}`;
+
+  // Relative days: «сегодня», «вчера».
+  const relativeDays: Record<string, number> = { 'сегодня': 0, 'вчера': -1 };
+  if (t in relativeDays) {
+    const d = new Date();
+    d.setDate(d.getDate() + relativeDays[t]);
+    return dateToDdmmyyyy(d);
+  }
 
   // DD.MM.YYYY or DD/MM/YYYY
   let m = t.match(/^(\d{1,2})[.\/](\d{1,2})[.\/](\d{4})$/);
