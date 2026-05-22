@@ -6,6 +6,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.4.2',
+    date: '2026-05-22',
+    changes: [
+      'Дата новой записи по умолчанию — сегодня, можно сразу нажать «Далее»',
+      'Дату можно надиктовать словами «сегодня» или «вчера»',
+    ],
+  },
+  {
     version: '1.4.1',
     date: '2026-05-22',
     changes: [
