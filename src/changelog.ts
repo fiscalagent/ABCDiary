@@ -6,6 +6,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.4.3',
+    date: '2026-05-23',
+    changes: [
+      'Google-аккаунт больше не спрашивает разрешение при каждой записи — вход запоминается',
+    ],
+  },
+  {
     version: '1.4.2',
     date: '2026-05-22',
     changes: [

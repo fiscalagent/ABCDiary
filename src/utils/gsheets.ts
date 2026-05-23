@@ -41,10 +41,31 @@ const SCOPE = 'https://www.googleapis.com/auth/spreadsheets';
 const SHEETS_BASE = 'https://sheets.googleapis.com/v4/spreadsheets';
 const CONFIG_KEY = 'abcdiary_google_config';
 const ACCOUNT_HINT_KEY = 'abcdiary_google_account';
+const TOKEN_KEY = 'abcdiary_google_token';
 
 let tokenClient: TokenClient | null = null;
 let accessToken = '';
 let tokenExpiry = 0;
+
+// Restore a cached token so reloads within its lifetime need no popup
+try {
+  const raw = localStorage.getItem(TOKEN_KEY);
+  if (raw) {
+    const saved = JSON.parse(raw) as { token: string; expiry: number };
+    if (saved.expiry > Date.now()) {
+      accessToken = saved.token;
+      tokenExpiry = saved.expiry;
+    }
+  }
+} catch {}
+
+function storeToken(token: string, expiry: number): void {
+  accessToken = token;
+  tokenExpiry = expiry;
+  try {
+    localStorage.setItem(TOKEN_KEY, JSON.stringify({ token, expiry }));
+  } catch {}
+}
 
 export function extractSpreadsheetId(input: string): string {
   const match = input.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
@@ -87,27 +108,25 @@ export function revokeGoogleToken(): void {
   tokenExpiry = 0;
   tokenClient = null;
   localStorage.removeItem(ACCOUNT_HINT_KEY);
+  localStorage.removeItem(TOKEN_KEY);
 }
 
-async function waitForToken(): Promise<string> {
-  if (accessToken && Date.now() < tokenExpiry) return accessToken;
-
-  if (!tokenClient) {
-    for (let i = 0; i < 50 && !tokenClient; i++) {
-      if (!initGoogleAuth()) await new Promise(r => setTimeout(r, 100));
-    }
-  }
-  if (!tokenClient) throw new Error('Google Sign-In не загрузился. Проверьте интернет-соединение.');
-
+// Request a token from GIS. `silent` uses prompt:'none' (no UI); resolves null
+// if interaction would be required, so the caller can fall back to interactive.
+function requestToken(silent: boolean): Promise<string | null> {
   return new Promise((resolve, reject) => {
     tokenClient!.callback = (resp: TokenResponse) => {
       if (resp.error) {
+        // Silent attempt couldn't proceed without UI — let caller fall back
+        if (silent) {
+          resolve(null);
+          return;
+        }
         reject(new Error(resp.error_description || resp.error));
         return;
       }
-      accessToken = resp.access_token;
-      tokenExpiry = Date.now() + resp.expires_in * 1000 - 60_000;
-      // Save account hint so next session skips the account picker
+      storeToken(resp.access_token, Date.now() + resp.expires_in * 1000 - 60_000);
+      // Save account hint so future silent refreshes target the same account
       if (!localStorage.getItem(ACCOUNT_HINT_KEY)) {
         fetch('https://www.googleapis.com/oauth2/v1/userinfo', {
           headers: { Authorization: `Bearer ${accessToken}` },
@@ -120,8 +139,28 @@ async function waitForToken(): Promise<string> {
       }
       resolve(accessToken);
     };
-    tokenClient!.requestAccessToken({ prompt: '' });
+    tokenClient!.requestAccessToken({ prompt: silent ? 'none' : '' });
   });
+}
+
+async function waitForToken(): Promise<string> {
+  if (accessToken && Date.now() < tokenExpiry) return accessToken;
+
+  if (!tokenClient) {
+    for (let i = 0; i < 50 && !tokenClient; i++) {
+      if (!initGoogleAuth()) await new Promise(r => setTimeout(r, 100));
+    }
+  }
+  if (!tokenClient) throw new Error('Google Sign-In не загрузился. Проверьте интернет-соединение.');
+
+  // Try a silent refresh first when we know the account; only prompt if it fails
+  if (localStorage.getItem(ACCOUNT_HINT_KEY)) {
+    const silent = await requestToken(true);
+    if (silent) return silent;
+  }
+  const token = await requestToken(false);
+  if (!token) throw new Error('Не удалось получить доступ к Google.');
+  return token;
 }
 
 async function sheetsReq<T>(
@@ -155,7 +194,7 @@ export const SHEET_NAMES: Record<string, string> = {
 
 const HEADERS: Record<string, string[]> = {
   Эмоции: ['ID', 'Время', 'Дата', 'Триггерная ситуация', 'Мысли', 'Эмоции', 'Поведение'],
-  Дела: ['ID', 'Время', 'Дата', 'Занятие', 'Сфера', 'Важность (1-10)', 'Сложность (1-10)', 'Удовольствие (1-10)'],
+  Дела: ['ID', 'Время', 'Дата', 'Занятие', 'Сфера', 'Важность (1-10)', 'Сложность (1-10)', 'Удовлетворение (1-10)', 'Удовольствие (1-10)'],
 };
 
 export async function initSpreadsheet(cfg: GoogleConfig): Promise<void> {
@@ -192,10 +231,10 @@ export async function exportEntryToSheet(cfg: GoogleConfig, entry: DiaryEntry): 
   if (entry.sheetType === 'emotions') {
     row = [entry.entryId || '', entry.time, entry.date, entry.situation, entry.thoughts, entry.emotions, entry.behavior];
   } else {
-    row = [entry.entryId || '', entry.time, entry.date, entry.activity, entry.sphere, entry.importance, entry.difficulty, entry.pleasure];
+    row = [entry.entryId || '', entry.time, entry.date, entry.activity, entry.sphere, entry.importance, entry.difficulty, entry.pleasure, entry.enjoyment];
   }
 
-  const lastCol = row.length === 8 ? 'H' : 'G';
+  const lastCol = String.fromCharCode(64 + row.length); // 7→'G', 8→'H', 9→'I'
 
   // Try to find existing row by entryId (only if entryId is set and sheet has ID column)
   if (entry.entryId) {
