@@ -34,6 +34,7 @@ interface TokenResponse {
 
 export interface GoogleConfig {
   spreadsheetId: string;
+  accountEmail?: string;
 }
 
 const GOOGLE_CLIENT_ID = '370573440901-0stejge8ol4dp528e5tqgg6akl4mboim.apps.googleusercontent.com';
@@ -88,9 +89,17 @@ export function clearGoogleConfig(): void {
   localStorage.removeItem(CONFIG_KEY);
 }
 
+// The account hint: a user-configured email (Settings) takes priority over the
+// one auto-detected on first sign-in.
+function getAccountHint(): string | undefined {
+  const configured = loadGoogleConfig()?.accountEmail?.trim();
+  if (configured) return configured;
+  return localStorage.getItem(ACCOUNT_HINT_KEY) ?? undefined;
+}
+
 export function initGoogleAuth(): boolean {
   if (!window.google) return false;
-  const login_hint = localStorage.getItem(ACCOUNT_HINT_KEY) ?? undefined;
+  const login_hint = getAccountHint();
   tokenClient = window.google.accounts.oauth2.initTokenClient({
     client_id: GOOGLE_CLIENT_ID,
     scope: SCOPE,
@@ -154,7 +163,7 @@ async function waitForToken(): Promise<string> {
   if (!tokenClient) throw new Error('Google Sign-In не загрузился. Проверьте интернет-соединение.');
 
   // Try a silent refresh first when we know the account; only prompt if it fails
-  if (localStorage.getItem(ACCOUNT_HINT_KEY)) {
+  if (getAccountHint()) {
     const silent = await requestToken(true);
     if (silent) return silent;
   }

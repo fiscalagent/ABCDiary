@@ -6,6 +6,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.4.4',
+    date: '2026-05-23',
+    changes: [
+      'В настройках можно указать Google-аккаунт — запись идёт от него без выбора',
+    ],
+  },
+  {
     version: '1.4.3',
     date: '2026-05-23',
     changes: [

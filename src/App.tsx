@@ -152,8 +152,11 @@ export default function App() {
   const findEntry = (id: number) => entries.find(e => e.id === id);
 
   /* ── Google settings handlers ── */
-  const handleSaveGoogleConfig = (spreadsheetId: string) => {
-    const cfg = { spreadsheetId: extractSpreadsheetId(spreadsheetId) };
+  const handleSaveGoogleConfig = (spreadsheetId: string, accountEmail: string) => {
+    const cfg: GoogleConfig = {
+      spreadsheetId: extractSpreadsheetId(spreadsheetId),
+      ...(accountEmail.trim() ? { accountEmail: accountEmail.trim() } : {}),
+    };
     saveGoogleConfig(cfg);
     setGoogleConfig(cfg);
     initGoogleAuth();
@@ -321,7 +324,7 @@ function AboutSection() {
 interface GSProps {
   config: GoogleConfig | null;
   msg: string;
-  onSave: (spreadsheetId: string) => void;
+  onSave: (spreadsheetId: string, accountEmail: string) => void;
   onInitSheet: () => void;
   onRevoke: () => void;
   onBack: () => void;
@@ -329,6 +332,7 @@ interface GSProps {
 
 function GoogleSettingsScreen({ config, msg, onSave, onInitSheet, onRevoke, onBack }: GSProps) {
   const [spreadsheetId, setSpreadsheetId] = useState(config?.spreadsheetId ?? '');
+  const [accountEmail, setAccountEmail] = useState(config?.accountEmail ?? '');
   const [showHelp, setShowHelp] = useState(false);
   const [gsExpanded, setGsExpanded] = useState(false);
 
@@ -395,9 +399,25 @@ function GoogleSettingsScreen({ config, msg, onSave, onInitSheet, onRevoke, onBa
                   spellCheck={false}
                 />
               </div>
+              <div className="field-group" style={{ marginTop: 12 }}>
+                <label className="field-label">Google-аккаунт (email)</label>
+                <input
+                  className="settings-input"
+                  type="email"
+                  value={accountEmail}
+                  onChange={e => setAccountEmail(e.target.value)}
+                  placeholder="you@gmail.com"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                />
+                <p className="field-hint">
+                  Запись будет отправляться от этого аккаунта без выбора при каждом сохранении.
+                </p>
+              </div>
               <button
                 className="settings-btn primary"
-                onClick={() => onSave(spreadsheetId)}
+                onClick={() => onSave(spreadsheetId, accountEmail)}
                 disabled={!spreadsheetId.trim()}
               >
                 Сохранить
