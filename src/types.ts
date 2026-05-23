@@ -21,6 +21,7 @@ export interface TaskData {
   importance: string;
   difficulty: string;
   pleasure: string;
+  enjoyment: string;
 }
 
 export type EntryData = EmotionData | TaskData;

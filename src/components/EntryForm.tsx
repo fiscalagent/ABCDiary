@@ -53,20 +53,26 @@ const TASK_FIELDS: FieldConfig[] = [
   },
   {
     key: 'importance',
-    label: 'Важность (1-10)',
-    hint: 'Назовите число от 1 до 10',
+    label: 'Важность (0–10)',
+    hint: 'Выберите число или назовите его голосом',
     rows: 1,
   },
   {
     key: 'difficulty',
-    label: 'Сложность (1-10)',
-    hint: 'Насколько сложно? Число от 1 до 10',
+    label: 'Сложность (0–10)',
+    hint: 'Насколько сложно? Выберите или назовите число',
     rows: 1,
   },
   {
     key: 'pleasure',
-    label: 'Удовольствие (1-10)',
-    hint: 'Насколько приятно? Число от 1 до 10',
+    label: 'Удовлетворение (0–10)',
+    hint: 'Насколько приятно? Выберите или назовите число',
+    rows: 1,
+  },
+  {
+    key: 'enjoyment',
+    label: 'Удовольствие (0–10)',
+    hint: 'Сколько удовольствия получили? Выберите или назовите число',
     rows: 1,
   },
 ];
@@ -84,7 +90,7 @@ const WORD_TO_DIGIT: Record<string, string> = {
   'девять': '9', 'десять': '10',
 };
 
-const NUMERIC_FIELDS = new Set(['importance', 'difficulty', 'pleasure']);
+const NUMERIC_FIELDS = new Set(['importance', 'difficulty', 'pleasure', 'enjoyment']);
 const TIME_FIELDS = new Set(['time']);
 const DATE_FIELDS = new Set(['date']);
 
@@ -189,10 +195,73 @@ const MONTHS_RU = [
 
 function normalizeNumericText(text: string): string {
   const trimmed = text.trim().toLowerCase();
-  if (WORD_TO_DIGIT[trimmed]) return WORD_TO_DIGIT[trimmed];
-  const match = trimmed.match(/\d+/);
-  if (match) return match[0];
-  return text.trim();
+  let digits: string | null = null;
+  if (WORD_TO_DIGIT[trimmed]) digits = WORD_TO_DIGIT[trimmed];
+  else {
+    const match = trimmed.match(/\d+/);
+    if (match) digits = match[0];
+  }
+  if (digits === null) return text.trim();
+  // Ratings are 0–10; keep only an in-range value so the picker stays consistent.
+  const n = Number(digits);
+  return n >= 0 && n <= 10 ? String(n) : '';
+}
+
+// Horizontal 0–10 rating slider: tap or drag along the track, value snaps to
+// whole numbers. RATING_PAD (half the thumb width) keeps the thumb inside the
+// track at both ends. Empty value renders as "–" until the user picks one.
+const RATING_PAD = 12;
+
+function RatingInput({ value, onChange, className }: { value: string; onChange: (v: string) => void; className?: string }) {
+  const trackRef = useRef<HTMLDivElement>(null);
+  const filled = value.trim() !== '';
+  const num = filled ? Math.min(10, Math.max(0, Math.round(Number(value) || 0))) : 0;
+  const ratio = num / 10;
+
+  const commit = (clientX: number) => {
+    const el = trackRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const usable = rect.width - RATING_PAD * 2;
+    const r = usable > 0 ? (clientX - rect.left - RATING_PAD) / usable : 0;
+    onChange(String(Math.round(Math.min(1, Math.max(0, r)) * 10)));
+  };
+
+  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    commit(e.clientX);
+  };
+  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.buttons === 0) return; // only while pressed
+    commit(e.clientX);
+  };
+
+  const span = `(100% - ${RATING_PAD * 2}px)`;
+
+  return (
+    <div className={`rating-slider${filled ? '' : ' empty'}${className ? ' ' + className : ''}`}>
+      <div className="rating-value">{filled ? num : '–'}</div>
+      <div
+        ref={trackRef}
+        className="rating-track"
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        role="slider"
+        aria-valuemin={0}
+        aria-valuemax={10}
+        aria-valuenow={filled ? num : undefined}
+        aria-valuetext={filled ? String(num) : 'не выбрано'}
+      >
+        <div className="rating-rail" />
+        <div className="rating-fill" style={{ width: `calc(${ratio} * ${span})` }} />
+        <div className="rating-ticks">
+          {Array.from({ length: 11 }, (_, i) => <span key={i} className="rating-tick" />)}
+        </div>
+        <div className="rating-thumb" style={{ left: `calc(${RATING_PAD}px + ${ratio} * ${span})` }} />
+      </div>
+      <div className="rating-scale"><span>0</span><span>5</span><span>10</span></div>
+    </div>
+  );
 }
 
 // Russian cardinal number words 0..50 (units, teens, tens) we may hear in spoken time.
@@ -578,6 +647,7 @@ export function EntryForm({ initial, initialSheetType, onSave, onCancel }: Props
       importance: values.importance || '',
       difficulty: values.difficulty || '',
       pleasure: values.pleasure || '',
+      enjoyment: values.enjoyment || '',
     } satisfies TaskData;
   };
 
@@ -644,7 +714,13 @@ export function EntryForm({ initial, initialSheetType, onSave, onCancel }: Props
           <h2 className="rec-field-label">{field.label}</h2>
           <p className="rec-field-hint">{field.hint}</p>
 
-          {DATE_FIELDS.has(field.key) ? (
+          {NUMERIC_FIELDS.has(field.key) ? (
+            <RatingInput
+              className={isRecording ? 'recording-border' : ''}
+              value={values[field.key] || ''}
+              onChange={val => setValues(v => ({ ...v, [field.key]: val }))}
+            />
+          ) : DATE_FIELDS.has(field.key) ? (
             <DateInput
               className={isRecording ? 'recording-border' : ''}
               value={values[field.key] || ''}
@@ -740,7 +816,12 @@ export function EntryForm({ initial, initialSheetType, onSave, onCancel }: Props
         {previewFields.map(f => (
           <div key={f.key} className="field-group">
             <label className="field-label">{f.label}</label>
-            {DATE_FIELDS.has(f.key) ? (
+            {NUMERIC_FIELDS.has(f.key) ? (
+              <RatingInput
+                value={values[f.key] || ''}
+                onChange={val => setValues(v => ({ ...v, [f.key]: val }))}
+              />
+            ) : DATE_FIELDS.has(f.key) ? (
               <DateInput
                 value={values[f.key] || ''}
                 onChange={val => setValues(v => ({ ...v, [f.key]: val }))}

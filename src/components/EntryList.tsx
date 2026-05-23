@@ -108,7 +108,8 @@ export function EntryList({ entries, onView, onNew, onLock, onSettings }: Props)
                     <span className="entry-card-scores">
                       {e.importance && <span title="Важность">❗{e.importance}</span>}
                       {e.difficulty && <span title="Сложность">💪{e.difficulty}</span>}
-                      {e.pleasure && <span title="Удовольствие">😊{e.pleasure}</span>}
+                      {e.pleasure && <span title="Удовлетворение">😊{e.pleasure}</span>}
+                      {e.enjoyment && <span title="Удовольствие">😍{e.enjoyment}</span>}
                     </span>
                   )}
                   <span className="entry-type-badge">
