@@ -6,6 +6,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.4.5',
+    date: '2026-05-24',
+    changes: [
+      'Синхронизация с таблицей больше не зависает молча — при сбое входа показывается понятная ошибка',
+    ],
+  },
+  {
     version: '1.4.4',
     date: '2026-05-23',
     changes: [
