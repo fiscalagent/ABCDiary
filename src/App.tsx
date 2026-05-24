@@ -430,7 +430,7 @@ function GoogleSettingsScreen({ config, msg, onSave, onInitSheet, onRevoke, onBa
                 onClick={onInitSheet}
                 disabled={!config}
               >
-                🔧 Создать листы «Эмоции» и «Дела»
+                🔧 Инициализировать таблицу
               </button>
               <button className="settings-btn danger" onClick={onRevoke}>
                 🚪 Выйти из Google аккаунта

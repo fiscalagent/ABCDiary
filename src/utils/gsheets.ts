@@ -13,10 +13,16 @@ declare global {
   }
 }
 
+interface GoogleErrorResponse {
+  type?: string;
+  message?: string;
+}
+
 interface GoogleTokenClientConfig {
   client_id: string;
   scope: string;
   callback: ((response: TokenResponse) => void) | '';
+  error_callback?: (error: GoogleErrorResponse) => void;
   login_hint?: string;
 }
 
@@ -47,6 +53,9 @@ const TOKEN_KEY = 'abcdiary_google_token';
 let tokenClient: TokenClient | null = null;
 let accessToken = '';
 let tokenExpiry = 0;
+// Set per-request so GIS popup failures (blocked/closed popup) reach the
+// pending requestToken() promise instead of being silently dropped.
+let currentErrorHandler: ((error: GoogleErrorResponse) => void) | null = null;
 
 // Restore a cached token so reloads within its lifetime need no popup
 try {
@@ -104,6 +113,7 @@ export function initGoogleAuth(): boolean {
     client_id: GOOGLE_CLIENT_ID,
     scope: SCOPE,
     callback: '',
+    error_callback: err => currentErrorHandler?.(err),
     ...(login_hint ? { login_hint } : {}),
   });
   return true;
@@ -123,15 +133,36 @@ export function revokeGoogleToken(): void {
 // Request a token from GIS. `silent` uses prompt:'none' (no UI); resolves null
 // if interaction would be required, so the caller can fall back to interactive.
 function requestToken(silent: boolean): Promise<string | null> {
+  // Silent attempts should fail fast so we can fall back to interactive;
+  // interactive needs longer because the user is choosing an account.
+  const timeoutMs = silent ? 10_000 : 90_000;
   return new Promise((resolve, reject) => {
+    let settled = false;
+    const finish = (fn: () => void) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      currentErrorHandler = null;
+      fn();
+    };
+
+    // A silent attempt that can't proceed (no UI) falls back to interactive;
+    // an interactive failure surfaces to the user as a sync error.
+    const fail = (message: string) =>
+      finish(() => (silent ? resolve(null) : reject(new Error(message))));
+
+    const timer = setTimeout(
+      () => fail('Истекло время ожидания входа в Google. Попробуйте ещё раз.'),
+      timeoutMs
+    );
+
+    // Popup blocked/closed/failed-to-open arrives here, not in callback
+    currentErrorHandler = (err: GoogleErrorResponse) =>
+      fail(err?.message || err?.type || 'Не удалось открыть окно входа Google.');
+
     tokenClient!.callback = (resp: TokenResponse) => {
       if (resp.error) {
-        // Silent attempt couldn't proceed without UI — let caller fall back
-        if (silent) {
-          resolve(null);
-          return;
-        }
-        reject(new Error(resp.error_description || resp.error));
+        fail(resp.error_description || resp.error);
         return;
       }
       storeToken(resp.access_token, Date.now() + resp.expires_in * 1000 - 60_000);
@@ -146,7 +177,7 @@ function requestToken(silent: boolean): Promise<string | null> {
           })
           .catch(() => {});
       }
-      resolve(accessToken);
+      finish(() => resolve(accessToken));
     };
     tokenClient!.requestAccessToken({ prompt: silent ? 'none' : '' });
   });
