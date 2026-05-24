@@ -106,6 +106,17 @@ function getAccountHint(): string | undefined {
   return localStorage.getItem(ACCOUNT_HINT_KEY) ?? undefined;
 }
 
+// True while a non-expired access token is cached — i.e. saves will sync
+// without any popup. Used by Settings to show the connection status.
+export function isSignedIn(): boolean {
+  return !!accessToken && Date.now() < tokenExpiry;
+}
+
+// Email to show as the active account (configured one, else the detected one).
+export function getActiveAccount(): string | undefined {
+  return getAccountHint();
+}
+
 export function initGoogleAuth(): boolean {
   if (!window.google) return false;
   const login_hint = getAccountHint();

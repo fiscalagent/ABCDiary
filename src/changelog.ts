@@ -6,6 +6,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.4.8',
+    date: '2026-05-24',
+    changes: [
+      'Раздел Google Таблицы стал компактнее: видно статус подключения, настройки скрыты до «Изменить»',
+    ],
+  },
+  {
     version: '1.4.7',
     date: '2026-05-24',
     changes: [

@@ -1118,6 +1118,58 @@ body {
 .gs-toggle-label { flex: 1; font-weight: 600; }
 .gs-toggle-arrow { font-size: 11px; color: var(--muted); }
 
+/* Connection summary (shown when a table is configured) */
+.gs-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.gs-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--text-secondary);
+  flex-shrink: 0;
+}
+.gs-dot.on { background: #34a853; }
+.gs-status-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.gs-status-title { font-weight: 600; font-size: 14px; }
+.gs-status-sub {
+  font-size: 13px;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Row of quiet, low-priority text actions */
+.gs-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 16px;
+}
+.gs-link {
+  background: none;
+  border: none;
+  padding: 6px 4px;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--primary);
+  cursor: pointer;
+}
+.gs-link:disabled { opacity: 0.4; cursor: default; }
+.gs-link.danger { color: var(--danger); }
+
 .settings-msg {
   font-size: 14px;
   color: var(--primary);

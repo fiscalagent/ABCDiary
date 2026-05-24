@@ -10,6 +10,8 @@ import {
   revokeGoogleToken,
   initGoogleAuth,
   signInInteractive,
+  isSignedIn,
+  getActiveAccount,
   exportEntryToSheet,
   extractSpreadsheetId,
 } from './utils/gsheets';
@@ -344,6 +346,12 @@ function GoogleSettingsScreen({ config, msg, onSave, onInitSheet, onRevoke, onBa
   const [accountEmail, setAccountEmail] = useState(config?.accountEmail ?? '');
   const [showHelp, setShowHelp] = useState(false);
   const [gsExpanded, setGsExpanded] = useState(false);
+  // Configured tables show a compact summary; the form appears only on "edit".
+  const [editing, setEditing] = useState(!config?.spreadsheetId);
+
+  const connected = isSignedIn();
+  const account = getActiveAccount();
+  const tableTail = config?.spreadsheetId ? config.spreadsheetId.slice(-6) : '';
 
   if (showHelp) {
     return (
@@ -393,7 +401,36 @@ function GoogleSettingsScreen({ config, msg, onSave, onInitSheet, onRevoke, onBa
             <span className="gs-toggle-label">Google Таблица</span>
             <span className="gs-toggle-arrow">{gsExpanded ? '▲' : '▼'}</span>
           </button>
-          {gsExpanded && (
+          {gsExpanded && !editing && (
+            <>
+              <div className="gs-status">
+                <span className={`gs-dot${connected ? ' on' : ''}`} />
+                <div className="gs-status-text">
+                  <span className="gs-status-title">
+                    {connected ? 'Подключено' : 'Настроено'}
+                  </span>
+                  {account && <span className="gs-status-sub">{account}</span>}
+                  {tableTail && <span className="gs-status-sub">Таблица: …{tableTail}</span>}
+                </div>
+              </div>
+              <button className="settings-btn secondary" onClick={() => setEditing(true)}>
+                ⚙️ Изменить настройки
+              </button>
+              <div className="gs-links">
+                <button className="gs-link" onClick={onInitSheet} disabled={!config}>
+                  🔧 Создать листы
+                </button>
+                <button className="gs-link" onClick={() => setShowHelp(true)}>
+                  Инструкция
+                </button>
+                <button className="gs-link danger" onClick={onRevoke}>
+                  🚪 Выйти
+                </button>
+              </div>
+            </>
+          )}
+
+          {gsExpanded && editing && (
             <>
               <div className="field-group" style={{ marginTop: 12 }}>
                 <label className="field-label">Ссылка на таблицу</label>
@@ -408,7 +445,7 @@ function GoogleSettingsScreen({ config, msg, onSave, onInitSheet, onRevoke, onBa
                   spellCheck={false}
                 />
               </div>
-              <div className="field-group" style={{ marginTop: 12 }}>
+              <div className="field-group">
                 <label className="field-label">Google-аккаунт (email)</label>
                 <input
                   className="settings-input"
@@ -421,29 +458,29 @@ function GoogleSettingsScreen({ config, msg, onSave, onInitSheet, onRevoke, onBa
                   spellCheck={false}
                 />
                 <p className="field-hint">
-                  Запись будет отправляться от этого аккаунта без выбора при каждом сохранении.
+                  Запись отправляется от этого аккаунта без выбора при каждом сохранении.
                 </p>
               </div>
               <button
                 className="settings-btn primary"
-                onClick={() => onSave(spreadsheetId, accountEmail)}
+                onClick={() => {
+                  onSave(spreadsheetId, accountEmail);
+                  if (config) setEditing(false);
+                }}
                 disabled={!spreadsheetId.trim()}
               >
                 💾 Сохранить и войти в Google
               </button>
-              <button className="settings-btn secondary" onClick={() => setShowHelp(true)}>
-                Как настроить? →
-              </button>
-              <button
-                className="settings-btn secondary"
-                onClick={onInitSheet}
-                disabled={!config}
-              >
-                🔧 Инициализировать таблицу
-              </button>
-              <button className="settings-btn danger" onClick={onRevoke}>
-                🚪 Выйти из Google аккаунта
-              </button>
+              <div className="gs-links">
+                <button className="gs-link" onClick={() => setShowHelp(true)}>
+                  Как настроить?
+                </button>
+                {config && (
+                  <button className="gs-link" onClick={() => setEditing(false)}>
+                    Отмена
+                  </button>
+                )}
+              </div>
             </>
           )}
         </div>
