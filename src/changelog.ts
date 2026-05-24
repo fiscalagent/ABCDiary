@@ -6,6 +6,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.4.7',
+    date: '2026-05-24',
+    changes: [
+      'Кнопка «Сохранить» теперь сразу выполняет вход в Google',
+    ],
+  },
+  {
     version: '1.4.6',
     date: '2026-05-24',
     changes: [
