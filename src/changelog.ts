@@ -6,6 +6,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.4.6',
+    date: '2026-05-24',
+    changes: [
+      'Добавлена кнопка «Войти в Google» в настройках — вход больше не блокируется',
+    ],
+  },
+  {
     version: '1.4.5',
     date: '2026-05-24',
     changes: [

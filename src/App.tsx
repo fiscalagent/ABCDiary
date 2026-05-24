@@ -9,6 +9,7 @@ import {
   initSpreadsheet,
   revokeGoogleToken,
   initGoogleAuth,
+  signInInteractive,
   exportEntryToSheet,
   extractSpreadsheetId,
 } from './utils/gsheets';
@@ -175,6 +176,18 @@ export default function App() {
     setTimeout(() => setSettingsMsg(''), 5000);
   };
 
+  // Interactive sign-in must run directly from the button click (no awaits
+  // before requestAccessToken) so the OAuth popup isn't blocked.
+  const handleGoogleSignIn = () => {
+    setSettingsMsg('Открываю вход в Google…');
+    signInInteractive()
+      .then(() => setSettingsMsg('✅ Вход выполнен — записи будут синхронизироваться'))
+      .catch(err =>
+        setSettingsMsg(`Ошибка входа: ${err instanceof Error ? err.message : String(err)}`)
+      )
+      .finally(() => setTimeout(() => setSettingsMsg(''), 5000));
+  };
+
   const handleRevokeGoogle = () => {
     revokeGoogleToken();
     setSettingsMsg('Вышли из Google аккаунта');
@@ -213,6 +226,7 @@ export default function App() {
           config={googleConfig}
           msg={settingsMsg}
           onSave={handleSaveGoogleConfig}
+          onSignIn={handleGoogleSignIn}
           onInitSheet={() => googleConfig && handleInitSheet(googleConfig)}
           onRevoke={handleRevokeGoogle}
           onBack={() => setScreen({ name: 'list' })}
@@ -325,12 +339,13 @@ interface GSProps {
   config: GoogleConfig | null;
   msg: string;
   onSave: (spreadsheetId: string, accountEmail: string) => void;
+  onSignIn: () => void;
   onInitSheet: () => void;
   onRevoke: () => void;
   onBack: () => void;
 }
 
-function GoogleSettingsScreen({ config, msg, onSave, onInitSheet, onRevoke, onBack }: GSProps) {
+function GoogleSettingsScreen({ config, msg, onSave, onSignIn, onInitSheet, onRevoke, onBack }: GSProps) {
   const [spreadsheetId, setSpreadsheetId] = useState(config?.spreadsheetId ?? '');
   const [accountEmail, setAccountEmail] = useState(config?.accountEmail ?? '');
   const [showHelp, setShowHelp] = useState(false);
@@ -424,6 +439,13 @@ function GoogleSettingsScreen({ config, msg, onSave, onInitSheet, onRevoke, onBa
               </button>
               <button className="settings-btn secondary" onClick={() => setShowHelp(true)}>
                 Как настроить? →
+              </button>
+              <button
+                className="settings-btn primary"
+                onClick={onSignIn}
+                disabled={!config}
+              >
+                🔑 Войти в Google
               </button>
               <button
                 className="settings-btn secondary"

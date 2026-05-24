@@ -183,6 +183,20 @@ function requestToken(silent: boolean): Promise<string | null> {
   });
 }
 
+// Acquire a token via the interactive popup. MUST be called straight from a
+// user gesture (button click) with no awaits before it, or the browser blocks
+// the popup ("Failed to open popup window"). Auto-sync can't satisfy that —
+// hence this dedicated sign-in entry point. Once it succeeds the token is
+// cached and later saves refresh it silently without any popup.
+export function signInInteractive(): Promise<void> {
+  if (!tokenClient && !initGoogleAuth()) {
+    return Promise.reject(
+      new Error('Google Sign-In не загрузился. Проверьте интернет-соединение.')
+    );
+  }
+  return requestToken(false).then(() => undefined);
+}
+
 async function waitForToken(): Promise<string> {
   if (accessToken && Date.now() < tokenExpiry) return accessToken;
 
