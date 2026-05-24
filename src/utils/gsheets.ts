@@ -288,7 +288,25 @@ export async function initSpreadsheet(cfg: GoogleConfig): Promise<void> {
   }
 }
 
+// Sheets returns this (English, locale-independent) when the target tab
+// doesn't exist yet — meaning the spreadsheet hasn't been initialized.
+function isMissingSheetError(err: unknown): boolean {
+  return err instanceof Error && /unable to parse range/i.test(err.message);
+}
+
+// Sync a row to its sheet. If the «Эмоции»/«Дела» tab doesn't exist yet,
+// create it (and headers) on the fly and retry — so no manual "init" step.
 export async function exportEntryToSheet(cfg: GoogleConfig, entry: DiaryEntry): Promise<void> {
+  try {
+    await writeEntryRow(cfg, entry);
+  } catch (err) {
+    if (!isMissingSheetError(err)) throw err;
+    await initSpreadsheet(cfg);
+    await writeEntryRow(cfg, entry);
+  }
+}
+
+async function writeEntryRow(cfg: GoogleConfig, entry: DiaryEntry): Promise<void> {
   const sheetName = SHEET_NAMES[entry.sheetType];
   if (!sheetName) throw new Error('Неизвестный тип записи');
 

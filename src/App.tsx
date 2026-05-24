@@ -6,7 +6,6 @@ import type { GoogleConfig } from './utils/gsheets';
 import {
   loadGoogleConfig,
   saveGoogleConfig,
-  initSpreadsheet,
   revokeGoogleToken,
   initGoogleAuth,
   signInInteractive,
@@ -175,17 +174,6 @@ export default function App() {
       .finally(() => setTimeout(() => setSettingsMsg(''), 5000));
   };
 
-  const handleInitSheet = async (cfg: GoogleConfig) => {
-    setSettingsMsg('Создаю листы…');
-    try {
-      await initSpreadsheet(cfg);
-      setSettingsMsg('✅ Таблица инициализирована');
-    } catch (err) {
-      setSettingsMsg(`Ошибка: ${err instanceof Error ? err.message : String(err)}`);
-    }
-    setTimeout(() => setSettingsMsg(''), 5000);
-  };
-
   const handleRevokeGoogle = () => {
     revokeGoogleToken();
     setSettingsMsg('Вышли из Google аккаунта');
@@ -224,7 +212,6 @@ export default function App() {
           config={googleConfig}
           msg={settingsMsg}
           onSave={handleSaveGoogleConfig}
-          onInitSheet={() => googleConfig && handleInitSheet(googleConfig)}
           onRevoke={handleRevokeGoogle}
           onBack={() => setScreen({ name: 'list' })}
         />
@@ -336,12 +323,11 @@ interface GSProps {
   config: GoogleConfig | null;
   msg: string;
   onSave: (spreadsheetId: string, accountEmail: string) => void;
-  onInitSheet: () => void;
   onRevoke: () => void;
   onBack: () => void;
 }
 
-function GoogleSettingsScreen({ config, msg, onSave, onInitSheet, onRevoke, onBack }: GSProps) {
+function GoogleSettingsScreen({ config, msg, onSave, onRevoke, onBack }: GSProps) {
   const [spreadsheetId, setSpreadsheetId] = useState(config?.spreadsheetId ?? '');
   const [accountEmail, setAccountEmail] = useState(config?.accountEmail ?? '');
   const [showHelp, setShowHelp] = useState(false);
@@ -366,8 +352,9 @@ function GoogleSettingsScreen({ config, msg, onSave, onInitSheet, onRevoke, onBa
             <h3>Шаг 1 — Google Таблица</h3>
             <ol>
               <li>Создайте новую Google Таблицу</li>
-              <li>Нажмите «Поделиться» → «Скопировать ссылку»<br />или скопируйте ссылку из адресной строки</li>
-              <li>После сохранения настроек нажмите<br />«Инициализировать таблицу»</li>
+              <li>Скопируйте ссылку на неё (из адресной строки<br />или через «Поделиться»)</li>
+              <li>Вставьте ссылку в настройках и нажмите<br />«Сохранить и войти в Google»</li>
+              <li>Листы «Эмоции» и «Дела» создадутся<br />автоматически при первой записи</li>
             </ol>
           </div>
           <div className="help-card">
@@ -388,7 +375,12 @@ function GoogleSettingsScreen({ config, msg, onSave, onInitSheet, onRevoke, onBa
       <header className="app-header">
         <button className="text-btn" onClick={onBack}>← Назад</button>
         <span className="header-title">Настройки</span>
-        <span style={{ minWidth: 64 }} />
+        <div className="header-actions">
+          <button className="icon-btn" onClick={() => setShowHelp(true)} aria-label="Инструкция" title="Инструкция">❓</button>
+          {config && (
+            <button className="icon-btn" onClick={onRevoke} aria-label="Выйти из Google" title="Выйти из Google">🚪</button>
+          )}
+        </div>
       </header>
       <div className="form-body">
         <div className="settings-section">
@@ -416,17 +408,6 @@ function GoogleSettingsScreen({ config, msg, onSave, onInitSheet, onRevoke, onBa
               <button className="settings-btn secondary" onClick={() => setEditing(true)}>
                 ⚙️ Изменить настройки
               </button>
-              <div className="gs-links">
-                <button className="gs-link" onClick={onInitSheet} disabled={!config}>
-                  🔧 Создать листы
-                </button>
-                <button className="gs-link" onClick={() => setShowHelp(true)}>
-                  Инструкция
-                </button>
-                <button className="gs-link danger" onClick={onRevoke}>
-                  🚪 Выйти
-                </button>
-              </div>
             </>
           )}
 
@@ -471,16 +452,13 @@ function GoogleSettingsScreen({ config, msg, onSave, onInitSheet, onRevoke, onBa
               >
                 💾 Сохранить и войти в Google
               </button>
-              <div className="gs-links">
-                <button className="gs-link" onClick={() => setShowHelp(true)}>
-                  Как настроить?
-                </button>
-                {config && (
+              {config && (
+                <div className="gs-links">
                   <button className="gs-link" onClick={() => setEditing(false)}>
                     Отмена
                   </button>
-                )}
-              </div>
+                </div>
+              )}
             </>
           )}
         </div>

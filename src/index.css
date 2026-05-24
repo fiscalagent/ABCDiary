@@ -203,6 +203,16 @@ body {
   line-height: 1;
 }
 
+/* Right-aligned cluster of header icon buttons; min-width balances the
+   left "← Назад" so the title stays centered. */
+.header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  min-width: 64px;
+}
+
 /* Floating action button */
 .fab {
   position: fixed;

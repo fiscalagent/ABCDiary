@@ -6,6 +6,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.4.9',
+    date: '2026-05-24',
+    changes: [
+      'Листы «Эмоции» и «Дела» создаются автоматически — отдельная кнопка больше не нужна',
+      'Инструкция и выход из Google теперь иконками в шапке настроек',
+    ],
+  },
+  {
     version: '1.4.8',
     date: '2026-05-24',
     changes: [
