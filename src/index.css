@@ -1220,6 +1220,37 @@ body {
   font-family: monospace;
 }
 
+/* ── Help screen ── */
+.help-body {
+  gap: 20px;
+}
+
+.help-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.help-section-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0 0 4px;
+}
+
+.help-card--note {
+  background: var(--bg);
+  border-color: var(--border);
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.help-sub {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
 /* ── Changelog ── */
 .changelog {
   margin-top: 12px;

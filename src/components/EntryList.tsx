@@ -8,6 +8,7 @@ interface Props {
   onNew: (sheetType?: SheetType) => void;
   onLock: () => void;
   onSettings: () => void;
+  onHelp: () => void;
 }
 
 const FILTER_OPTIONS = [
@@ -32,7 +33,7 @@ function clip(text: string, max = 80) {
   return text.length > max ? text.slice(0, max) + '…' : text;
 }
 
-export function EntryList({ entries, onView, onNew, onLock, onSettings }: Props) {
+export function EntryList({ entries, onView, onNew, onLock, onSettings, onHelp }: Props) {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<FilterKey>('all');
 
@@ -57,6 +58,7 @@ export function EntryList({ entries, onView, onNew, onLock, onSettings }: Props)
       <header className="app-header">
         <h1 className="app-title-sm">ABCDiary</h1>
         <div style={{ display: 'flex', gap: 4 }}>
+          <button className="icon-btn" onClick={onHelp} title="Инструкция">❓</button>
           <button className="icon-btn" onClick={onSettings} title="Настройки">⚙️</button>
           <button className="icon-btn" onClick={onLock} title="Заблокировать">🔒</button>
         </div>

@@ -21,6 +21,7 @@ import { PinLock } from './components/PinLock';
 import { EntryList } from './components/EntryList';
 import { EntryForm } from './components/EntryForm';
 import { EntryView } from './components/EntryView';
+import { HelpScreen } from './components/HelpScreen';
 
 type Screen =
   | { name: 'loading' }
@@ -30,7 +31,8 @@ type Screen =
   | { name: 'new'; sheetType?: SheetType }
   | { name: 'view'; entryId: number }
   | { name: 'edit'; entryId: number }
-  | { name: 'googleSettings' };
+  | { name: 'googleSettings' }
+  | { name: 'help' };
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>({ name: 'loading' });
@@ -53,7 +55,7 @@ export default function App() {
   }, []);
 
   const goBack = useCallback(() => {
-    if (screen.name === 'new' || screen.name === 'googleSettings' || screen.name === 'view') {
+    if (screen.name === 'new' || screen.name === 'googleSettings' || screen.name === 'view' || screen.name === 'help') {
       setScreen({ name: 'list' });
     } else if (screen.name === 'edit') {
       setScreen({ name: 'view', entryId: screen.entryId });
@@ -63,7 +65,7 @@ export default function App() {
   // Push a history entry when entering sub-screens so Android back button triggers popstate
   const prevScreenName = useRef(screen.name);
   useEffect(() => {
-    const subScreens = ['new', 'view', 'edit', 'googleSettings'];
+    const subScreens = ['new', 'view', 'edit', 'googleSettings', 'help'];
     if (subScreens.includes(screen.name) && prevScreenName.current !== screen.name) {
       history.pushState(null, '');
     }
@@ -203,6 +205,15 @@ export default function App() {
     return <PinLock onUnlock={handleUnlock} />;
   }
 
+  if (screen.name === 'help') {
+    return (
+      <>
+        {updateBanner}
+        <HelpScreen onBack={() => setScreen({ name: 'list' })} />
+      </>
+    );
+  }
+
   if (screen.name === 'googleSettings') {
     return (
       <>
@@ -230,6 +241,7 @@ export default function App() {
           onNew={sheetType => setScreen({ name: 'new', sheetType })}
           onLock={lock}
           onSettings={() => setScreen({ name: 'googleSettings' })}
+          onHelp={() => setScreen({ name: 'help' })}
         />
       </>
     );
