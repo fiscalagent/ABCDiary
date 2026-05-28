@@ -87,7 +87,7 @@ export function EntryList({ entries, onView, onEvaluate, onNew, onLock, onSettin
         <h1 className="app-title-sm">ABCDiary</h1>
         <div style={{ display: 'flex', gap: 4 }}>
           <button className="icon-btn" onClick={onGoals} title="Цели">🎯</button>
-          <button className="icon-btn" onClick={onHelp} title="Инструкция">❓</button>
+          <button className="icon-btn help" onClick={onHelp} title="Инструкция">?</button>
           <button className="icon-btn" onClick={onSettings} title="Настройки">⚙️</button>
           <button className="icon-btn" onClick={onLock} title="Заблокировать">🔒</button>
         </div>

@@ -202,6 +202,11 @@ body {
   padding: 4px 8px;
   line-height: 1;
 }
+.icon-btn.help {
+  color: #26A69A;
+  font-weight: 700;
+  font-size: 22px;
+}
 
 /* Right-aligned cluster of header icon buttons; min-width balances the
    left "← Назад" so the title stays centered. */

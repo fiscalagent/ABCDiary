@@ -688,7 +688,7 @@ function GoogleSettingsScreen({ config, msg, onSave, onRevoke, onBack }: GSProps
         <button className="text-btn" onClick={onBack}>← Назад</button>
         <span className="header-title">Настройки</span>
         <div className="header-actions">
-          <button className="icon-btn" onClick={() => setShowHelp(true)} aria-label="Инструкция" title="Инструкция">❓</button>
+          <button className="icon-btn help" onClick={() => setShowHelp(true)} aria-label="Инструкция" title="Инструкция">?</button>
           {config && (
             <button className="icon-btn" onClick={onRevoke} aria-label="Выйти из Google" title="Выйти из Google">🚪</button>
           )}
