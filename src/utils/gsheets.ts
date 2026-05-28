@@ -1,4 +1,4 @@
-import type { DiaryEntry } from '../types';
+import type { DiaryEntry, Goal, GoalHorizon, GoalStatus } from '../types';
 
 declare global {
   interface Window {
@@ -255,6 +255,18 @@ async function sheetsReq<T>(
 export const SHEET_NAMES: Record<string, string> = {
   emotions: 'Эмоции',
   tasks: 'Дела',
+  goals: 'Цели',
+};
+
+const HORIZON_LABEL: Record<GoalHorizon, string> = {
+  month: 'месяц',
+  week: 'неделя',
+  day: 'день',
+};
+const STATUS_LABEL: Record<GoalStatus, string> = {
+  active: 'активна',
+  done: 'выполнена',
+  cancelled: 'отменена',
 };
 
 const HEADERS: Record<string, string[]> = {
@@ -262,6 +274,7 @@ const HEADERS: Record<string, string[]> = {
   // Status appended at the end so spreadsheets created before 1.5.0 keep their
   // existing column layout — the new column lands in J with an empty header.
   Дела: ['ID', 'Время', 'Дата', 'Занятие', 'Сфера', 'Важность (0-10)', 'Сложность (0-10)', 'Удовлетворение (0-10)', 'Удовольствие (0-10)', 'Статус'],
+  Цели: ['ID', 'Родитель', 'Название', 'Горизонт', 'Дедлайн', 'Статус', 'Создана', 'Перенесена (раз)', 'Заметка'],
 };
 
 export async function initSpreadsheet(cfg: GoogleConfig): Promise<void> {
@@ -345,6 +358,65 @@ async function writeEntryRow(cfg: GoogleConfig, entry: DiaryEntry): Promise<void
   }
 
   // Append new row
+  await sheetsReq(
+    cfg,
+    `/values/${encodeURIComponent(sheetName + '!A1')}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
+    'POST',
+    { values: [row] }
+  );
+}
+
+function ddmmyyyy(d: Date): string {
+  return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}`;
+}
+
+// Sync a goal row to the Цели sheet. Same upsert-by-ID pattern as entries:
+// if the row exists we update it, otherwise append. Creates the sheet on the
+// fly if it's missing (older spreadsheets).
+export async function exportGoalToSheet(cfg: GoogleConfig, goal: Goal): Promise<void> {
+  try {
+    await writeGoalRow(cfg, goal);
+  } catch (err) {
+    if (!isMissingSheetError(err)) throw err;
+    await initSpreadsheet(cfg);
+    await writeGoalRow(cfg, goal);
+  }
+}
+
+async function writeGoalRow(cfg: GoogleConfig, goal: Goal): Promise<void> {
+  const sheetName = SHEET_NAMES.goals;
+  const row: string[] = [
+    goal.goalId,
+    goal.parentGoalId || '',
+    goal.title,
+    HORIZON_LABEL[goal.horizon],
+    goal.deadline,
+    STATUS_LABEL[goal.status],
+    ddmmyyyy(goal.createdAt),
+    goal.deferredCount > 0 ? String(goal.deferredCount) : '',
+    goal.note || '',
+  ];
+  const lastCol = String.fromCharCode(64 + row.length); // 9 → 'I'
+
+  const colA = await sheetsReq<{ values?: string[][] }>(
+    cfg,
+    `/values/${encodeURIComponent(sheetName + '!A:A')}`
+  );
+  const rows = colA.values ?? [];
+  if (rows[0]?.[0] === 'ID') {
+    const rowIdx = rows.findIndex((r, i) => i > 0 && r[0] === goal.goalId);
+    if (rowIdx !== -1) {
+      const sheetRow = rowIdx + 1;
+      await sheetsReq(
+        cfg,
+        `/values/${encodeURIComponent(`${sheetName}!A${sheetRow}:${lastCol}${sheetRow}`)}?valueInputOption=USER_ENTERED`,
+        'PUT',
+        { values: [row] }
+      );
+      return;
+    }
+  }
+
   await sheetsReq(
     cfg,
     `/values/${encodeURIComponent(sheetName + '!A1')}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,

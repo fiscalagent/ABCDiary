@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { db } from './db';
-import type { DiaryEntry, EntryData, SheetType } from './types';
+import type { DiaryEntry, EntryData, SheetType, Goal, GoalData, GoalStatus, GoalHorizon, TaskData } from './types';
 import { encryptData, decryptData } from './crypto';
 import type { GoogleConfig } from './utils/gsheets';
 import {
@@ -12,6 +12,7 @@ import {
   isSignedIn,
   getActiveAccount,
   exportEntryToSheet,
+  exportGoalToSheet,
   extractSpreadsheetId,
 } from './utils/gsheets';
 import { CHANGELOG } from './changelog';
@@ -22,23 +23,31 @@ import { EntryList } from './components/EntryList';
 import { EntryForm } from './components/EntryForm';
 import { EntryView } from './components/EntryView';
 import { HelpScreen } from './components/HelpScreen';
+import { GoalList } from './components/GoalList';
+import { GoalForm } from './components/GoalForm';
+import { GoalView } from './components/GoalView';
 
 type Screen =
   | { name: 'loading' }
   | { name: 'setup' }
   | { name: 'locked' }
   | { name: 'list' }
-  | { name: 'new'; sheetType?: SheetType }
+  | { name: 'new'; sheetType?: SheetType; prefill?: Partial<EntryData> }
   | { name: 'view'; entryId: number }
   | { name: 'edit'; entryId: number }
   | { name: 'evaluate'; entryId: number }
   | { name: 'googleSettings' }
-  | { name: 'help' };
+  | { name: 'help' }
+  | { name: 'goals' }
+  | { name: 'goalNew'; horizon?: GoalHorizon; parentGoalId?: string }
+  | { name: 'goalView'; goalDbId: number }
+  | { name: 'goalEdit'; goalDbId: number };
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>({ name: 'loading' });
   const [cryptoKey, setCryptoKey] = useState<CryptoKey | null>(null);
   const [entries, setEntries] = useState<DiaryEntry[]>([]);
+  const [goals, setGoals] = useState<Goal[]>([]);
   const [googleConfig, setGoogleConfig] = useState<GoogleConfig | null>(null);
   const [settingsMsg, setSettingsMsg] = useState('');
   const [syncToast, setSyncToast] = useState('');
@@ -56,17 +65,31 @@ export default function App() {
   }, []);
 
   const goBack = useCallback(() => {
-    if (screen.name === 'new' || screen.name === 'googleSettings' || screen.name === 'view' || screen.name === 'help' || screen.name === 'evaluate') {
+    if (screen.name === 'new' || screen.name === 'googleSettings' || screen.name === 'view' || screen.name === 'help' || screen.name === 'evaluate' || screen.name === 'goals') {
       setScreen({ name: 'list' });
     } else if (screen.name === 'edit') {
       setScreen({ name: 'view', entryId: screen.entryId });
+    } else if (screen.name === 'goalNew') {
+      // If creating a subtask, return to its parent's view rather than the goals list.
+      if (screen.parentGoalId) {
+        const parent = goals.find(g => g.goalId === screen.parentGoalId);
+        if (parent) {
+          setScreen({ name: 'goalView', goalDbId: parent.id });
+          return;
+        }
+      }
+      setScreen({ name: 'goals' });
+    } else if (screen.name === 'goalView') {
+      setScreen({ name: 'goals' });
+    } else if (screen.name === 'goalEdit') {
+      setScreen({ name: 'goalView', goalDbId: screen.goalDbId });
     }
-  }, [screen]);
+  }, [screen, goals]);
 
   // Push a history entry when entering sub-screens so Android back button triggers popstate
   const prevScreenName = useRef(screen.name);
   useEffect(() => {
-    const subScreens = ['new', 'view', 'edit', 'evaluate', 'googleSettings', 'help'];
+    const subScreens = ['new', 'view', 'edit', 'evaluate', 'googleSettings', 'help', 'goals', 'goalNew', 'goalView', 'goalEdit'];
     if (subScreens.includes(screen.name) && prevScreenName.current !== screen.name) {
       history.pushState(null, '');
     }
@@ -100,13 +123,29 @@ export default function App() {
     setEntries(decrypted);
   }, []);
 
+  const loadGoals = useCallback(async (key: CryptoKey) => {
+    const raw = await db.goals.orderBy('createdAt').reverse().toArray();
+    const decrypted = await Promise.all(
+      raw.map(async r => {
+        const data = await decryptData(r.iv, r.ciphertext, key) as GoalData;
+        return {
+          ...data,
+          id: r.id!,
+          createdAt: new Date(r.createdAt),
+          updatedAt: new Date(r.updatedAt),
+        } as Goal;
+      })
+    );
+    setGoals(decrypted);
+  }, []);
+
   const handleUnlock = useCallback(
     async (key: CryptoKey) => {
       setCryptoKey(key);
-      await loadEntries(key);
+      await Promise.all([loadEntries(key), loadGoals(key)]);
       setScreen({ name: 'list' });
     },
-    [loadEntries]
+    [loadEntries, loadGoals]
   );
 
   const handleSave = async (data: EntryData, editId?: number) => {
@@ -154,9 +193,157 @@ export default function App() {
     setScreen({ name: 'list' });
   };
 
+  // Persist a goal (create or update). Optimistically updates the list and
+  // fires off a Google Sheets sync in the background, mirroring handleSave.
+  const persistGoal = useCallback(
+    async (data: GoalData, editDbId?: number): Promise<Goal> => {
+      if (!cryptoKey) throw new Error('locked');
+      const now = Date.now();
+      const { iv, ciphertext } = await encryptData(data, cryptoKey);
+      let dbId: number;
+      let createdAt: number;
+      if (editDbId !== undefined) {
+        const existing = goals.find(g => g.id === editDbId);
+        createdAt = existing?.createdAt.getTime() ?? now;
+        await db.goals.update(editDbId, { iv, ciphertext, updatedAt: now });
+        dbId = editDbId;
+      } else {
+        createdAt = now;
+        dbId = (await db.goals.add({ iv, ciphertext, createdAt: now, updatedAt: now })) as number;
+      }
+      const goal: Goal = {
+        ...data,
+        id: dbId,
+        createdAt: new Date(createdAt),
+        updatedAt: new Date(now),
+      };
+      await loadGoals(cryptoKey);
+      if (googleConfig) {
+        exportGoalToSheet(googleConfig, goal)
+          .then(() => {
+            setSyncToast('✅ Цель синхронизирована');
+            setTimeout(() => setSyncToast(''), 3000);
+          })
+          .catch(err => {
+            setSyncToast(`⚠️ Ошибка синхронизации: ${err instanceof Error ? err.message : String(err)}`);
+            setTimeout(() => setSyncToast(''), 6000);
+          });
+      }
+      return goal;
+    },
+    [cryptoKey, goals, googleConfig, loadGoals]
+  );
+
+  const handleSaveGoal = async (data: GoalData, editDbId?: number) => {
+    await persistGoal(data, editDbId);
+    if (data.parentGoalId) {
+      // Saved a subtask → bounce back to the parent's view so the user sees
+      // their new step land in context.
+      const parent = goals.find(g => g.goalId === data.parentGoalId);
+      if (parent) {
+        setScreen({ name: 'goalView', goalDbId: parent.id });
+        return;
+      }
+    }
+    setScreen({ name: 'goals' });
+  };
+
+  // Delete a goal and all its subtasks (the user already confirmed in the view).
+  const handleDeleteGoal = async (dbId: number) => {
+    if (!cryptoKey) return;
+    const target = goals.find(g => g.id === dbId);
+    if (!target) return;
+    const subIds = goals.filter(g => g.parentGoalId === target.goalId).map(g => g.id);
+    await db.goals.bulkDelete([dbId, ...subIds]);
+    await loadGoals(cryptoKey);
+    setScreen({ name: 'goals' });
+  };
+
+  const handleSetGoalStatus = async (goal: Goal, status: GoalStatus) => {
+    const data: GoalData = {
+      goalId: goal.goalId,
+      ...(goal.parentGoalId ? { parentGoalId: goal.parentGoalId } : {}),
+      title: goal.title,
+      horizon: goal.horizon,
+      deadline: goal.deadline,
+      status,
+      ...(goal.note ? { note: goal.note } : {}),
+      deferredCount: goal.deferredCount,
+      ...(goal.linkedEntryIds ? { linkedEntryIds: goal.linkedEntryIds } : {}),
+    };
+    await persistGoal(data, goal.id);
+  };
+
+  // "Soft" deferral: push the deadline forward by one horizon-step and bump
+  // the deferredCount so we can see, without judgement, how often it slipped.
+  const handleDeferGoalDeadline = async (goal: Goal) => {
+    const m = goal.deadline.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+    if (!m) return;
+    const d = new Date(+m[3], +m[2] - 1, +m[1]);
+    if (goal.horizon === 'day') d.setDate(d.getDate() + 1);
+    else if (goal.horizon === 'week') d.setDate(d.getDate() + 7);
+    else d.setMonth(d.getMonth() + 1);
+    const newDeadline =
+      `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}`;
+    const data: GoalData = {
+      goalId: goal.goalId,
+      ...(goal.parentGoalId ? { parentGoalId: goal.parentGoalId } : {}),
+      title: goal.title,
+      horizon: goal.horizon,
+      deadline: newDeadline,
+      status: goal.status,
+      ...(goal.note ? { note: goal.note } : {}),
+      deferredCount: goal.deferredCount + 1,
+      ...(goal.linkedEntryIds ? { linkedEntryIds: goal.linkedEntryIds } : {}),
+    };
+    await persistGoal(data, goal.id);
+  };
+
+  // Spawn a planned "Дело" pre-filled from the goal. The new task is saved
+  // immediately with today's date and status=planned, then the user lands on
+  // the list and can tap it to add time/importance/etc. before the day is out.
+  const handleLinkGoalAsTask = async (goal: Goal) => {
+    if (!cryptoKey) return;
+    const today = new Date();
+    const dateStr = `${String(today.getDate()).padStart(2, '0')}.${String(today.getMonth() + 1).padStart(2, '0')}.${today.getFullYear()}`;
+    const parent = goal.parentGoalId ? goals.find(g => g.goalId === goal.parentGoalId) : null;
+    const entryId = crypto.randomUUID();
+    const task: TaskData = {
+      sheetType: 'tasks',
+      entryId,
+      status: 'planned',
+      time: '',
+      date: dateStr,
+      activity: goal.title,
+      sphere: parent?.title || '',
+      importance: '',
+      difficulty: '',
+      pleasure: '',
+      enjoyment: '',
+    };
+    await handleSave(task);
+    // Record the link on the goal side so we can show "linked to N дел" later.
+    const linked = [...(goal.linkedEntryIds || []), entryId];
+    const data: GoalData = {
+      goalId: goal.goalId,
+      ...(goal.parentGoalId ? { parentGoalId: goal.parentGoalId } : {}),
+      title: goal.title,
+      horizon: goal.horizon,
+      deadline: goal.deadline,
+      status: goal.status,
+      ...(goal.note ? { note: goal.note } : {}),
+      deferredCount: goal.deferredCount,
+      linkedEntryIds: linked,
+    };
+    await persistGoal(data, goal.id);
+    setSyncToast('✅ Дело добавлено в план на сегодня');
+    setTimeout(() => setSyncToast(''), 3000);
+  };
+
   const lock = () => {
     setCryptoKey(null);
     setEntries([]);
+    setGoals([]);
     setScreen({ name: 'locked' });
   };
 
@@ -250,6 +437,7 @@ export default function App() {
           onLock={lock}
           onSettings={() => setScreen({ name: 'googleSettings' })}
           onHelp={() => setScreen({ name: 'help' })}
+          onGoals={() => setScreen({ name: 'goals' })}
         />
       </>
     );
@@ -306,6 +494,92 @@ export default function App() {
           onBack={() => setScreen({ name: 'list' })}
         />
       </>
+    );
+  }
+
+  /* ── Goals screens ── */
+
+  if (screen.name === 'goals') {
+    return (
+      <>
+        {updateBanner}
+        {toast}
+        <GoalList
+          goals={goals}
+          onView={id => setScreen({ name: 'goalView', goalDbId: id })}
+          onNew={horizon => setScreen({ name: 'goalNew', horizon })}
+          onBack={() => setScreen({ name: 'list' })}
+        />
+      </>
+    );
+  }
+  if (screen.name === 'goalNew') {
+    const parent = screen.parentGoalId
+      ? goals.find(g => g.goalId === screen.parentGoalId)
+      : undefined;
+    return (
+      <GoalForm
+        mode="create"
+        initial={{
+          ...(screen.horizon ? { horizon: screen.horizon } : {}),
+          ...(screen.parentGoalId ? { parentGoalId: screen.parentGoalId } : {}),
+        }}
+        parentGoal={parent}
+        onSave={data => handleSaveGoal(data)}
+        onCancel={() => {
+          if (parent) setScreen({ name: 'goalView', goalDbId: parent.id });
+          else setScreen({ name: 'goals' });
+        }}
+      />
+    );
+  }
+  if (screen.name === 'goalView') {
+    const goal = goals.find(g => g.id === screen.goalDbId);
+    if (!goal) return null;
+    return (
+      <>
+        {updateBanner}
+        {toast}
+        <GoalView
+          goal={goal}
+          allGoals={goals}
+          onBack={() => {
+            // Subtask view → back to parent goal; top-level view → goals list.
+            if (goal.parentGoalId) {
+              const parent = goals.find(g => g.goalId === goal.parentGoalId);
+              if (parent) {
+                setScreen({ name: 'goalView', goalDbId: parent.id });
+                return;
+              }
+            }
+            setScreen({ name: 'goals' });
+          }}
+          onEdit={() => setScreen({ name: 'goalEdit', goalDbId: goal.id })}
+          onDelete={() => handleDeleteGoal(goal.id)}
+          onAddSubtask={() => setScreen({ name: 'goalNew', parentGoalId: goal.goalId })}
+          onOpenSubtask={id => setScreen({ name: 'goalView', goalDbId: id })}
+          onSetStatus={status => handleSetGoalStatus(goal, status)}
+          onDeferDeadline={() => handleDeferGoalDeadline(goal)}
+          onLinkAsTask={() => handleLinkGoalAsTask(goal)}
+        />
+      </>
+    );
+  }
+  if (screen.name === 'goalEdit') {
+    const goal = goals.find(g => g.id === screen.goalDbId);
+    if (!goal) return null;
+    const parent = goal.parentGoalId
+      ? goals.find(g => g.goalId === goal.parentGoalId)
+      : undefined;
+    return (
+      <GoalForm
+        mode="edit"
+        initial={goal}
+        existing={goal}
+        parentGoal={parent}
+        onSave={data => handleSaveGoal(data, goal.id)}
+        onCancel={() => setScreen({ name: 'goalView', goalDbId: goal.id })}
+      />
     );
   }
   return null;
