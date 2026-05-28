@@ -17,26 +17,33 @@ function getSections(entry: DiaryEntry): SectionDef[] {
       { label: 'Поведение', value: entry.behavior },
     ];
   }
-  return [
-    { label: 'Время', value: entry.time },
+  const base: SectionDef[] = [
     { label: 'Дата', value: entry.date },
     { label: 'Занятие', value: entry.activity },
     { label: 'Сфера', value: entry.sphere },
-    { label: 'Важность (1-10)', value: entry.importance },
-    { label: 'Сложность (1-10)', value: entry.difficulty },
-    { label: 'Удовлетворение (1-10)', value: entry.pleasure },
-    { label: 'Удовольствие (1-10)', value: entry.enjoyment },
+    { label: entry.status === 'planned' ? 'Когда (план)' : 'Время', value: entry.time },
+    { label: 'Важность (0-10)', value: entry.importance },
   ];
+  // Hide empty rating rows for still-planned tasks — they're not yet meaningful.
+  if (entry.status !== 'planned') {
+    base.push(
+      { label: 'Сложность (0-10)', value: entry.difficulty },
+      { label: 'Удовольствие во время (0-10)', value: entry.enjoyment },
+      { label: 'Удовлетворение после (0-10)', value: entry.pleasure },
+    );
+  }
+  return base;
 }
 
 interface Props {
   entry: DiaryEntry;
   onEdit: () => void;
+  onEvaluate?: () => void;
   onDelete: () => void;
   onBack: () => void;
 }
 
-export function EntryView({ entry, onEdit, onDelete, onBack }: Props) {
+export function EntryView({ entry, onEdit, onEvaluate, onDelete, onBack }: Props) {
   const confirmDelete = () => {
     if (window.confirm('Удалить эту запись?')) onDelete();
   };
@@ -48,7 +55,9 @@ export function EntryView({ entry, onEdit, onDelete, onBack }: Props) {
       <header className="app-header">
         <button className="text-btn" onClick={onBack}>← Назад</button>
         <span className="header-title header-date">
-          {entry.sheetType === 'emotions' ? '💭 ' : '✅ '}
+          {entry.sheetType === 'emotions'
+            ? '💭 '
+            : entry.status === 'planned' ? '🗓 ' : '✅ '}
           {formatDateTime(entry.createdAt)}
         </span>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -58,6 +67,11 @@ export function EntryView({ entry, onEdit, onDelete, onBack }: Props) {
       </header>
 
       <div className="form-body">
+        {entry.sheetType === 'tasks' && entry.status === 'planned' && onEvaluate && (
+          <button className="settings-btn primary" onClick={onEvaluate} style={{ marginBottom: 16 }}>
+            ⭐ Оценить выполнение
+          </button>
+        )}
         {sections.map(s => (
           <div key={s.label} className="view-section">
             <div className="view-label">{s.label}</div>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import type { EntryData, EmotionData, TaskData, SheetType, DiaryEntry } from '../types';
+import type { EntryData, EmotionData, TaskData, TaskStatus, SheetType, DiaryEntry } from '../types';
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
 
 interface FieldConfig {
@@ -30,13 +30,11 @@ const EMOTION_FIELDS: FieldConfig[] = [
   { key: 'behavior', label: 'Поведение', hint: 'Как вы себя повели, что сделали?' },
 ];
 
-const TASK_FIELDS: FieldConfig[] = [
-  {
-    key: 'time',
-    label: 'Время',
-    hint: 'Например: «14:30», «девять тридцать десять» → 09:30–10:00',
-    rows: 1,
-  },
+// Tasks split into two phases:
+//   plan      — entered at the start of the day (what / sphere / when / importance)
+//   evaluate  — filled after doing the task (difficulty / enjoyment / satisfaction)
+// The full task preview (used for editing & evaluate preview) is plan ∪ evaluate.
+const TASK_PLAN_FIELDS: FieldConfig[] = [
   {
     key: 'date',
     label: 'Дата',
@@ -44,11 +42,17 @@ const TASK_FIELDS: FieldConfig[] = [
     autoFill: () => dateToDdmmyyyy(new Date()),
     rows: 1,
   },
-  { key: 'activity', label: 'Занятие', hint: 'Чем занимались или планируете заниматься?' },
+  { key: 'activity', label: 'Занятие', hint: 'Что планируете сделать?' },
   {
     key: 'sphere',
     label: 'Сфера',
     hint: 'Сфера жизни: работа, здоровье, семья, хобби...',
+    rows: 1,
+  },
+  {
+    key: 'time',
+    label: 'Когда (планируемое время)',
+    hint: 'Например: «14:30», «девять тридцать десять» → 09:30–10:00',
     rows: 1,
   },
   {
@@ -57,28 +61,43 @@ const TASK_FIELDS: FieldConfig[] = [
     hint: 'Выберите число или назовите его голосом',
     rows: 1,
   },
+];
+
+const TASK_EVAL_FIELDS: FieldConfig[] = [
   {
     key: 'difficulty',
     label: 'Сложность (0–10)',
-    hint: 'Насколько сложно? Выберите или назовите число',
-    rows: 1,
-  },
-  {
-    key: 'pleasure',
-    label: 'Удовлетворение (0–10)',
-    hint: 'Насколько приятно? Выберите или назовите число',
+    hint: 'Насколько сложно было? Выберите или назовите число',
     rows: 1,
   },
   {
     key: 'enjoyment',
-    label: 'Удовольствие (0–10)',
+    label: 'Удовольствие во время (0–10)',
     hint: 'Сколько удовольствия получили? Выберите или назовите число',
+    rows: 1,
+  },
+  {
+    key: 'pleasure',
+    label: 'Удовлетворение после (0–10)',
+    hint: 'Насколько приятно итогом? Выберите или назовите число',
     rows: 1,
   },
 ];
 
-function getFields(type: SheetType): FieldConfig[] {
-  return type === 'emotions' ? EMOTION_FIELDS : TASK_FIELDS;
+const TASK_FULL_FIELDS: FieldConfig[] = [...TASK_PLAN_FIELDS, ...TASK_EVAL_FIELDS];
+
+export type FormMode = 'plan' | 'evaluate' | 'edit';
+
+function getRecordFields(type: SheetType, mode: FormMode): FieldConfig[] {
+  if (type === 'emotions') return EMOTION_FIELDS;
+  // Editing reuses preview only; plan = the 5 morning fields; evaluate = the 3 rating fields.
+  return mode === 'evaluate' ? TASK_EVAL_FIELDS : TASK_PLAN_FIELDS;
+}
+
+function getPreviewFields(type: SheetType, mode: FormMode): FieldConfig[] {
+  if (type === 'emotions') return EMOTION_FIELDS;
+  // Plan preview hides eval fields (no scores yet); evaluate & edit show everything.
+  return mode === 'plan' ? TASK_PLAN_FIELDS : TASK_FULL_FIELDS;
 }
 
 const WORD_TO_DIGIT: Record<string, string> = {
@@ -527,14 +546,22 @@ function DateInput({ value, onChange, className }: { value: string; onChange: (v
 interface Props {
   initial?: DiaryEntry;
   initialSheetType?: SheetType;
+  // 'plan' — morning planning (new task, 5 plan fields)
+  // 'evaluate' — closing out a planned task (3 rating fields, then full preview)
+  // 'edit' — editing an existing entry (preview only, all fields)
+  // undefined — new entry, ask the user which sheet first
+  mode?: FormMode;
   onSave: (data: EntryData) => Promise<void>;
   onCancel: () => void;
 }
 
 type Phase = 'select' | 'record' | 'preview';
 
-export function EntryForm({ initial, initialSheetType, onSave, onCancel }: Props) {
-  const [phase, setPhase] = useState<Phase>(initial ? 'preview' : initialSheetType ? 'record' : 'select');
+export function EntryForm({ initial, initialSheetType, mode, onSave, onCancel }: Props) {
+  const effectiveMode: FormMode = mode ?? (initial ? 'edit' : 'plan');
+  const [phase, setPhase] = useState<Phase>(
+    effectiveMode === 'edit' ? 'preview' : initialSheetType || initial ? 'record' : 'select'
+  );
   const [sheetType, setSheetType] = useState<SheetType>(initial?.sheetType ?? initialSheetType ?? 'emotions');
   const [fieldIdx, setFieldIdx] = useState(0);
   const [values, setValues] = useState<Record<string, string>>({});
@@ -548,33 +575,39 @@ export function EntryForm({ initial, initialSheetType, onSave, onCancel }: Props
         if (typeof v === 'string') vals[k] = v;
       }
       setValues(vals);
+      // Evaluate flow starts on the first rating field (skip already-filled plan fields).
+      if (effectiveMode === 'evaluate') {
+        setFieldIdx(0);
+      }
     } else if (initialSheetType) {
+      const recordFields = getRecordFields(initialSheetType, effectiveMode);
       const autoVals: Record<string, string> = {};
-      for (const f of getFields(initialSheetType)) {
+      for (const f of recordFields) {
         if (f.autoFill) autoVals[f.key] = f.autoFill();
       }
       setValues(autoVals);
-      const firstContent = getFields(initialSheetType).findIndex(f => !f.autoFill);
+      const firstContent = recordFields.findIndex(f => !f.autoFill);
       setFieldIdx(firstContent >= 0 ? firstContent : 0);
     }
-  }, [initial, initialSheetType]);
+  }, [initial, initialSheetType, effectiveMode]);
 
   const startNewEntry = useCallback(
     (type: SheetType) => {
       setSheetType(type);
+      const recordFields = getRecordFields(type, effectiveMode);
       const autoVals: Record<string, string> = {};
-      for (const f of getFields(type)) {
+      for (const f of recordFields) {
         if (f.autoFill) autoVals[f.key] = f.autoFill();
       }
       setValues(autoVals);
-      const firstContent = getFields(type).findIndex(f => !f.autoFill);
+      const firstContent = recordFields.findIndex(f => !f.autoFill);
       setFieldIdx(firstContent >= 0 ? firstContent : 0);
       setPhase('record');
     },
-    []
+    [effectiveMode]
   );
 
-  const fields = getFields(sheetType);
+  const fields = getRecordFields(sheetType, effectiveMode);
   const field = fields[fieldIdx];
   const isLast = fieldIdx === fields.length - 1;
   const progress = ((fieldIdx + 1) / fields.length) * 100;
@@ -624,7 +657,7 @@ export function EntryForm({ initial, initialSheetType, onSave, onCancel }: Props
     }
   };
 
-  const buildData = (): EntryData => {
+  const buildData = (overrideStatus?: TaskStatus): EntryData => {
     if (sheetType === 'emotions') {
       return {
         sheetType: 'emotions',
@@ -637,9 +670,18 @@ export function EntryForm({ initial, initialSheetType, onSave, onCancel }: Props
         behavior: values.behavior || '',
       } satisfies EmotionData;
     }
+    // Status transitions:
+    //   plan      → planned (just scheduled)
+    //   evaluate  → done    (closing out a planned task)
+    //   edit      → keep previous status (defaulting to 'done' for legacy/manual entries)
+    const prevStatus = (initial?.sheetType === 'tasks' ? initial.status : undefined) ?? 'done';
+    const nextStatus: TaskStatus =
+      overrideStatus ??
+      (effectiveMode === 'plan' ? 'planned' : effectiveMode === 'evaluate' ? 'done' : prevStatus);
     return {
       sheetType: 'tasks',
       entryId: values.entryId || '',
+      status: nextStatus,
       time: values.time || '',
       date: values.date || '',
       activity: values.activity || '',
@@ -651,10 +693,10 @@ export function EntryForm({ initial, initialSheetType, onSave, onCancel }: Props
     } satisfies TaskData;
   };
 
-  const handleSave = async () => {
+  const handleSave = async (overrideStatus?: TaskStatus) => {
     if (status === 'recording') stop();
     setSaving(true);
-    await onSave(buildData());
+    await onSave(buildData(overrideStatus));
     setSaving(false);
   };
 
@@ -678,10 +720,10 @@ export function EntryForm({ initial, initialSheetType, onSave, onCancel }: Props
             <span className="sheet-select-arrow">›</span>
           </button>
           <button className="sheet-select-card" onClick={() => startNewEntry('tasks')}>
-            <span className="sheet-select-icon">✅</span>
+            <span className="sheet-select-icon">🗓</span>
             <div className="sheet-select-text">
-              <strong>Дела</strong>
-              <p>Занятие · сфера · важность · сложность</p>
+              <strong>Дело (план)</strong>
+              <p>Занятие · сфера · когда · важность</p>
             </div>
             <span className="sheet-select-arrow">›</span>
           </button>
@@ -701,7 +743,11 @@ export function EntryForm({ initial, initialSheetType, onSave, onCancel }: Props
       <div className="screen">
         <header className="app-header">
           <span className="header-title">
-            {sheetType === 'emotions' ? '💭 Эмоции' : '✅ Дела'}
+            {sheetType === 'emotions'
+              ? '💭 Эмоции'
+              : effectiveMode === 'evaluate'
+                ? '⭐ Оценка'
+                : '🗓 План дела'}
             <span className="step-indicator-inline"> · {fieldIdx + 1}/{fields.length}</span>
           </span>
         </header>
@@ -776,10 +822,18 @@ export function EntryForm({ initial, initialSheetType, onSave, onCancel }: Props
               )}
               <button
                 className="nav-side-btn primary"
-                onClick={isLast ? handleSave : goNext}
+                onClick={
+                  // Evaluate flow needs the preview step so the user can adjust
+                  // time/importance against actuals before committing to done.
+                  isLast && effectiveMode !== 'evaluate' ? () => handleSave() : goNext
+                }
                 disabled={saving}
               >
-                {isLast ? (saving ? '…' : 'Сохранить') : 'Далее →'}
+                {isLast
+                  ? effectiveMode === 'evaluate'
+                    ? 'Далее →'
+                    : (saving ? '…' : 'Сохранить')
+                  : 'Далее →'}
               </button>
             </div>
             {supported && (
@@ -795,22 +849,36 @@ export function EntryForm({ initial, initialSheetType, onSave, onCancel }: Props
   }
 
   /* ── PHASE: preview ── */
-  const previewFields = getFields(sheetType);
+  const previewFields = getPreviewFields(sheetType, effectiveMode);
+  const previewTitle =
+    effectiveMode === 'edit'
+      ? 'Редактировать'
+      : effectiveMode === 'evaluate'
+        ? 'Оценка выполнения'
+        : 'Проверка';
   return (
     <div className="screen">
       <header className="app-header">
-        <button className="text-btn" onClick={() => (initial ? onCancel() : setPhase('record'))}>
-          {initial ? 'Отмена' : '← Назад'}
+        <button className="text-btn" onClick={() => (effectiveMode === 'edit' ? onCancel() : setPhase('record'))}>
+          {effectiveMode === 'edit' ? 'Отмена' : '← Назад'}
         </button>
-        <span className="header-title">{initial ? 'Редактировать' : 'Проверка'}</span>
-        <button className="text-btn primary" onClick={handleSave} disabled={saving}>
-          {saving ? '…' : 'Сохранить'}
-        </button>
+        <span className="header-title">{previewTitle}</span>
+        {effectiveMode === 'evaluate' ? (
+          // Two-button flow lives at the bottom of the form (see below) so the
+          // header keeps the «Назад» + title rhythm of the other screens.
+          <span style={{ minWidth: 64 }} />
+        ) : (
+          <button className="text-btn primary" onClick={() => handleSave()} disabled={saving}>
+            {saving ? '…' : 'Сохранить'}
+          </button>
+        )}
       </header>
       <div className="form-body">
-        {!initial && (
+        {effectiveMode !== 'edit' && (
           <p className="preview-note muted">
-            Проверьте поля перед сохранением — можно редактировать прямо здесь.
+            {effectiveMode === 'evaluate'
+              ? 'Проверьте оценки. Время и важность можно подправить, если по факту вышло иначе.'
+              : 'Проверьте поля перед сохранением — можно редактировать прямо здесь.'}
           </p>
         )}
         {previewFields.map(f => (
@@ -842,6 +910,27 @@ export function EntryForm({ initial, initialSheetType, onSave, onCancel }: Props
             )}
           </div>
         ))}
+        {effectiveMode === 'evaluate' && (
+          // Two explicit actions: «Сохранить» keeps status=planned (you can
+          // come back later to finish), «Готово» flips to done. Both sync to
+          // Google Sheets the same way.
+          <div className="evaluate-actions">
+            <button
+              className="settings-btn secondary"
+              onClick={() => handleSave('planned')}
+              disabled={saving}
+            >
+              {saving ? '…' : '💾 Сохранить (пока в плане)'}
+            </button>
+            <button
+              className="settings-btn primary"
+              onClick={() => handleSave('done')}
+              disabled={saving}
+            >
+              {saving ? '…' : '✅ Готово'}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

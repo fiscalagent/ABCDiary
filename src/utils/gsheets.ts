@@ -259,7 +259,9 @@ export const SHEET_NAMES: Record<string, string> = {
 
 const HEADERS: Record<string, string[]> = {
   Эмоции: ['ID', 'Время', 'Дата', 'Триггерная ситуация', 'Мысли', 'Эмоции', 'Поведение'],
-  Дела: ['ID', 'Время', 'Дата', 'Занятие', 'Сфера', 'Важность (1-10)', 'Сложность (1-10)', 'Удовлетворение (1-10)', 'Удовольствие (1-10)'],
+  // Status appended at the end so spreadsheets created before 1.5.0 keep their
+  // existing column layout — the new column lands in J with an empty header.
+  Дела: ['ID', 'Время', 'Дата', 'Занятие', 'Сфера', 'Важность (0-10)', 'Сложность (0-10)', 'Удовлетворение (0-10)', 'Удовольствие (0-10)', 'Статус'],
 };
 
 export async function initSpreadsheet(cfg: GoogleConfig): Promise<void> {
@@ -314,10 +316,11 @@ async function writeEntryRow(cfg: GoogleConfig, entry: DiaryEntry): Promise<void
   if (entry.sheetType === 'emotions') {
     row = [entry.entryId || '', entry.time, entry.date, entry.situation, entry.thoughts, entry.emotions, entry.behavior];
   } else {
-    row = [entry.entryId || '', entry.time, entry.date, entry.activity, entry.sphere, entry.importance, entry.difficulty, entry.pleasure, entry.enjoyment];
+    const statusLabel = entry.status === 'planned' ? 'план' : 'выполнено';
+    row = [entry.entryId || '', entry.time, entry.date, entry.activity, entry.sphere, entry.importance, entry.difficulty, entry.pleasure, entry.enjoyment, statusLabel];
   }
 
-  const lastCol = String.fromCharCode(64 + row.length); // 7→'G', 8→'H', 9→'I'
+  const lastCol = String.fromCharCode(64 + row.length); // 7→'G', 10→'J'
 
   // Try to find existing row by entryId (only if entryId is set and sheet has ID column)
   if (entry.entryId) {

@@ -1,73 +1,60 @@
-# React + TypeScript + Vite
+# ABCDiary
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Голосовой дневник для КПТ-практики с локальным шифрованием и синхронизацией в Google Таблицы. PWA, ставится на телефон как обычное приложение.
 
-Currently, two official plugins are available:
+## Что это
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Дневник для пациента, таблица для терапевта. Пациент пишет записи голосом или текстом — приложение шифрует их на устройстве и одной строкой кладёт в Google Sheet, к которому у терапевта есть доступ. Никакого бэкенда: всё работает между браузером, IndexedDB и Google Sheets API.
 
-## React Compiler
+## Типы записей
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### 💭 Эмоции (one-shot)
 
-## Expanding the ESLint configuration
+ABC-схема в одном проходе: время · дата · триггерная ситуация · мысли · эмоции · поведение.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### 🗓 Дела (два этапа)
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+**Утром — план.** `+` → «Дело (план)» → 4 поля: занятие · сфера · когда планирую · важность 0–10. Сохранил → дело уезжает в Google Sheet со статусом `план` и появляется в секции «🗓 План на сегодня» наверху главного экрана.
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+**По ходу дня — оценка.** Тап по карточке плана → форма с 3 рейтингами: сложность · удовольствие во время · удовлетворение после. Время и важность здесь же можно подправить, если по факту вышло иначе.
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+Две явные кнопки на выходе:
+- **💾 Сохранить (пока в плане)** — частичная оценка, статус остаётся `план`, можно вернуться позже.
+- **✅ Готово** — статус → `выполнено`, карточка уходит из плана в общую ленту.
+
+Обе синхронизируются с Google Таблицей (один и тот же ряд обновляется по `entryId`).
+
+## Стек
+
+- **UI:** React 19 + TypeScript + Vite, vite-plugin-pwa
+- **Хранилище:** IndexedDB через Dexie, шифрование AES-256-GCM (см. [src/crypto.ts](src/crypto.ts))
+- **Голос:** Web Speech API (Chrome на Android — основной таргет), хук [src/hooks/useSpeechRecognition.ts](src/hooks/useSpeechRecognition.ts)
+- **Google Sheets:** GIS OAuth2 popup + Sheets REST API, см. [src/utils/gsheets.ts](src/utils/gsheets.ts)
+- **PIN-блокировка:** локальный шифр-ключ выводится из PIN, без него записи нечитаемы
+
+## Структура Google Таблицы
+
+Создаются два листа автоматически при первой записи:
+
+**Эмоции** — `ID · Время · Дата · Триггерная ситуация · Мысли · Эмоции · Поведение`
+
+**Дела** — `ID · Время · Дата · Занятие · Сфера · Важность · Сложность · Удовлетворение · Удовольствие · Статус`
+
+Колонка «Статус» добавлена в 1.5.0 — старые таблицы продолжают работать, новая колонка просто пишется в J без заголовка (либо допишите его руками, либо переинициализируйте таблицу).
+
+## Деплой
+
+GitHub Pages (HTTPS обязателен — Web Speech API и GIS требуют secure context). См. workflow в `.github/workflows/`.
+
+## Локальная разработка
+
+```bash
+npm install
+npm run dev       # vite, http://localhost:5173
+npm run build     # tsc + vite build → dist/
+npm run release   # bump version + tag
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Версии
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+См. [src/changelog.ts](src/changelog.ts) — отображается в Настройках в самом приложении.

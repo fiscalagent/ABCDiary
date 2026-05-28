@@ -31,6 +31,7 @@ type Screen =
   | { name: 'new'; sheetType?: SheetType }
   | { name: 'view'; entryId: number }
   | { name: 'edit'; entryId: number }
+  | { name: 'evaluate'; entryId: number }
   | { name: 'googleSettings' }
   | { name: 'help' };
 
@@ -55,7 +56,7 @@ export default function App() {
   }, []);
 
   const goBack = useCallback(() => {
-    if (screen.name === 'new' || screen.name === 'googleSettings' || screen.name === 'view' || screen.name === 'help') {
+    if (screen.name === 'new' || screen.name === 'googleSettings' || screen.name === 'view' || screen.name === 'help' || screen.name === 'evaluate') {
       setScreen({ name: 'list' });
     } else if (screen.name === 'edit') {
       setScreen({ name: 'view', entryId: screen.entryId });
@@ -65,7 +66,7 @@ export default function App() {
   // Push a history entry when entering sub-screens so Android back button triggers popstate
   const prevScreenName = useRef(screen.name);
   useEffect(() => {
-    const subScreens = ['new', 'view', 'edit', 'googleSettings', 'help'];
+    const subScreens = ['new', 'view', 'edit', 'evaluate', 'googleSettings', 'help'];
     if (subScreens.includes(screen.name) && prevScreenName.current !== screen.name) {
       history.pushState(null, '');
     }
@@ -82,6 +83,12 @@ export default function App() {
     const decrypted = await Promise.all(
       raw.map(async r => {
         const data = await decryptData(r.iv, r.ciphertext, key) as EntryData;
+        // Legacy tasks (pre-1.5.0) had no status field — they were all entered
+        // post-hoc, so treat them as completed. Done lazily on read; persisted
+        // next time the entry is saved.
+        if (data.sheetType === 'tasks' && !data.status) {
+          data.status = 'done';
+        }
         return {
           ...data,
           id: r.id!,
@@ -238,6 +245,7 @@ export default function App() {
         <EntryList
           entries={entries}
           onView={id => setScreen({ name: 'view', entryId: id })}
+          onEvaluate={id => setScreen({ name: 'evaluate', entryId: id })}
           onNew={sheetType => setScreen({ name: 'new', sheetType })}
           onLock={lock}
           onSettings={() => setScreen({ name: 'googleSettings' })}
@@ -261,8 +269,21 @@ export default function App() {
     return (
       <EntryForm
         initial={entry}
+        mode="edit"
         onSave={data => handleSave(data, entry.id)}
         onCancel={() => setScreen({ name: 'view', entryId: entry.id })}
+      />
+    );
+  }
+  if (screen.name === 'evaluate') {
+    const entry = findEntry(screen.entryId);
+    if (!entry || entry.sheetType !== 'tasks') return null;
+    return (
+      <EntryForm
+        initial={entry}
+        mode="evaluate"
+        onSave={data => handleSave(data, entry.id)}
+        onCancel={() => setScreen({ name: 'list' })}
       />
     );
   }
@@ -276,6 +297,11 @@ export default function App() {
         <EntryView
           entry={entry}
           onEdit={() => setScreen({ name: 'edit', entryId: entry.id })}
+          onEvaluate={
+            entry.sheetType === 'tasks' && entry.status === 'planned'
+              ? () => setScreen({ name: 'evaluate', entryId: entry.id })
+              : undefined
+          }
           onDelete={() => handleDelete(entry.id)}
           onBack={() => setScreen({ name: 'list' })}
         />

@@ -11,9 +11,12 @@ export interface EmotionData {
   behavior: string;
 }
 
+export type TaskStatus = 'planned' | 'done';
+
 export interface TaskData {
   sheetType: 'tasks';
   entryId: string;
+  status: TaskStatus;
   time: string;
   date: string;
   activity: string;

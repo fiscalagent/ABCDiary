@@ -5,10 +5,24 @@ import { formatShortDate } from '../utils/dateFormat';
 interface Props {
   entries: DiaryEntry[];
   onView: (id: number) => void;
+  onEvaluate: (id: number) => void;
   onNew: (sheetType?: SheetType) => void;
   onLock: () => void;
   onSettings: () => void;
   onHelp: () => void;
+}
+
+function isPlanned(e: DiaryEntry): boolean {
+  return e.sheetType === 'tasks' && e.status === 'planned';
+}
+
+function isToday(d: Date): boolean {
+  const now = new Date();
+  return (
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate()
+  );
 }
 
 const FILTER_OPTIONS = [
@@ -33,12 +47,25 @@ function clip(text: string, max = 80) {
   return text.length > max ? text.slice(0, max) + '…' : text;
 }
 
-export function EntryList({ entries, onView, onNew, onLock, onSettings, onHelp }: Props) {
+export function EntryList({ entries, onView, onEvaluate, onNew, onLock, onSettings, onHelp }: Props) {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<FilterKey>('all');
 
+  // Today's still-planned tasks — surfaced as a dedicated "to do" section above
+  // the regular log. Ordered by planned time so the day reads top-to-bottom.
+  const plannedToday = useMemo(() => {
+    if (query.trim() || filter === 'emotions') return [];
+    return entries
+      .filter(e => isPlanned(e) && isToday(e.createdAt))
+      .sort((a, b) => (a.sheetType === 'tasks' && b.sheetType === 'tasks'
+        ? (a.time || '').localeCompare(b.time || '')
+        : 0));
+  }, [entries, query, filter]);
+
+  const plannedIds = useMemo(() => new Set(plannedToday.map(e => e.id)), [plannedToday]);
+
   const filtered = useMemo(() => {
-    let list = entries;
+    let list = entries.filter(e => !plannedIds.has(e.id));
     if (filter !== 'all') list = list.filter(e => e.sheetType === filter);
     if (query.trim()) {
       const q = query.toLowerCase();
@@ -51,7 +78,7 @@ export function EntryList({ entries, onView, onNew, onLock, onSettings, onHelp }
       });
     }
     return list;
-  }, [entries, query, filter]);
+  }, [entries, query, filter, plannedIds]);
 
   return (
     <div className="screen">
@@ -85,8 +112,32 @@ export function EntryList({ entries, onView, onNew, onLock, onSettings, onHelp }
         </div>
       </div>
 
+      {plannedToday.length > 0 && (
+        <div className="planned-section">
+          <div className="planned-section-title">🗓 План на сегодня</div>
+          {plannedToday.map(e => {
+            if (e.sheetType !== 'tasks') return null;
+            return (
+              <div key={e.id} className="entry-card planned-card" onClick={() => onEvaluate(e.id)}>
+                <div className="entry-card-meta">
+                  <span className="entry-card-date">
+                    {e.time && <span className="entry-card-time">{e.time}</span>}
+                    {e.importance && <span className="planned-importance" title="Важность">❗{e.importance}</span>}
+                  </span>
+                  <span className="planned-cta">Оценить ›</span>
+                </div>
+                <div className="entry-card-preview">
+                  {e.activity ? clip(e.activity) : <span className="muted">Без названия</span>}
+                </div>
+                {e.sphere && <div className="entry-card-tag">{clip(e.sphere, 50)}</div>}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       <div className="entry-list">
-        {filtered.length === 0 && (
+        {filtered.length === 0 && plannedToday.length === 0 && (
           <p className="empty-state">
             {query || filter !== 'all'
               ? 'Ничего не найдено'
