@@ -90,7 +90,9 @@ export type FormMode = 'plan' | 'evaluate' | 'edit';
 
 function getRecordFields(type: SheetType, mode: FormMode): FieldConfig[] {
   if (type === 'emotions') return EMOTION_FIELDS;
-  // Editing reuses preview only; plan = the 5 morning fields; evaluate = the 3 rating fields.
+  // Editing walks through every field (so the mic is available on each, just
+  // like a new entry); plan = the 5 morning fields; evaluate = the 3 ratings.
+  if (mode === 'edit') return TASK_FULL_FIELDS;
   return mode === 'evaluate' ? TASK_EVAL_FIELDS : TASK_PLAN_FIELDS;
 }
 
@@ -560,7 +562,9 @@ type Phase = 'select' | 'record' | 'preview';
 export function EntryForm({ initial, initialSheetType, mode, onSave, onCancel }: Props) {
   const effectiveMode: FormMode = mode ?? (initial ? 'edit' : 'plan');
   const [phase, setPhase] = useState<Phase>(
-    effectiveMode === 'edit' ? 'preview' : initialSheetType || initial ? 'record' : 'select'
+    // Editing reuses the same field-by-field record flow as input (pre-filled),
+    // so voice dictation is available on every field.
+    initialSheetType || initial ? 'record' : 'select'
   );
   const [sheetType, setSheetType] = useState<SheetType>(initial?.sheetType ?? initialSheetType ?? 'emotions');
   const [fieldIdx, setFieldIdx] = useState(0);
@@ -652,6 +656,9 @@ export function EntryForm({ initial, initialSheetType, mode, onSave, onCancel }:
     if (status === 'recording') stop();
     if (fieldIdx > 0) {
       setFieldIdx(i => i - 1);
+    } else if (effectiveMode === 'edit') {
+      // No sheet-select step when editing — back from the first field cancels.
+      onCancel();
     } else {
       setPhase('select');
     }
@@ -743,11 +750,13 @@ export function EntryForm({ initial, initialSheetType, mode, onSave, onCancel }:
       <div className="screen">
         <header className="app-header">
           <span className="header-title">
-            {sheetType === 'emotions'
-              ? '💭 Эмоции'
-              : effectiveMode === 'evaluate'
-                ? '⭐ Оценка'
-                : '🗓 План дела'}
+            {effectiveMode === 'edit'
+              ? (sheetType === 'emotions' ? '✏️ Эмоции' : '✏️ Дело')
+              : sheetType === 'emotions'
+                ? '💭 Эмоции'
+                : effectiveMode === 'evaluate'
+                  ? '⭐ Оценка'
+                  : '🗓 План дела'}
             <span className="step-indicator-inline"> · {fieldIdx + 1}/{fields.length}</span>
           </span>
         </header>
