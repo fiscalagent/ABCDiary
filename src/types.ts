@@ -22,6 +22,7 @@ export interface TaskData {
   activity: string;
   sphere: string;
   importance: string;
+  urgency: string;
   difficulty: string;
   pleasure: string;
   enjoyment: string;

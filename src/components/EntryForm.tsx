@@ -61,6 +61,12 @@ const TASK_PLAN_FIELDS: FieldConfig[] = [
     hint: 'Выберите число или назовите его голосом',
     rows: 1,
   },
+  {
+    key: 'urgency',
+    label: 'Срочность (0–10)',
+    hint: 'Насколько срочно? Выберите число или назовите голосом',
+    rows: 1,
+  },
 ];
 
 const TASK_EVAL_FIELDS: FieldConfig[] = [
@@ -111,7 +117,7 @@ const WORD_TO_DIGIT: Record<string, string> = {
   'девять': '9', 'десять': '10',
 };
 
-const NUMERIC_FIELDS = new Set(['importance', 'difficulty', 'pleasure', 'enjoyment']);
+const NUMERIC_FIELDS = new Set(['importance', 'urgency', 'difficulty', 'pleasure', 'enjoyment']);
 const TIME_FIELDS = new Set(['time']);
 const DATE_FIELDS = new Set(['date']);
 
@@ -694,6 +700,7 @@ export function EntryForm({ initial, initialSheetType, mode, onSave, onCancel }:
       activity: values.activity || '',
       sphere: values.sphere || '',
       importance: values.importance || '',
+      urgency: values.urgency || '',
       difficulty: values.difficulty || '',
       pleasure: values.pleasure || '',
       enjoyment: values.enjoyment || '',

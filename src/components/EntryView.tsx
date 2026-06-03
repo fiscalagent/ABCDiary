@@ -23,6 +23,7 @@ function getSections(entry: DiaryEntry): SectionDef[] {
     { label: 'Сфера', value: entry.sphere },
     { label: entry.status === 'planned' ? 'Когда (план)' : 'Время', value: entry.time },
     { label: 'Важность (0-10)', value: entry.importance },
+    { label: 'Срочность (0-10)', value: entry.urgency },
   ];
   // Hide empty rating rows for still-planned tasks — they're not yet meaningful.
   if (entry.status !== 'planned') {

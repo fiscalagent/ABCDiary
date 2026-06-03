@@ -273,7 +273,7 @@ const HEADERS: Record<string, string[]> = {
   Эмоции: ['ID', 'Время', 'Дата', 'Триггерная ситуация', 'Мысли', 'Эмоции', 'Поведение'],
   // Status appended at the end so spreadsheets created before 1.5.0 keep their
   // existing column layout — the new column lands in J with an empty header.
-  Дела: ['ID', 'Время', 'Дата', 'Занятие', 'Сфера', 'Важность (0-10)', 'Сложность (0-10)', 'Удовлетворение (0-10)', 'Удовольствие (0-10)', 'Статус'],
+  Дела: ['ID', 'Время', 'Дата', 'Занятие', 'Сфера', 'Важность (0-10)', 'Срочность (0-10)', 'Сложность (0-10)', 'Удовлетворение (0-10)', 'Удовольствие (0-10)', 'Статус'],
   Цели: ['ID', 'Родитель', 'Название', 'Горизонт', 'Дедлайн', 'Статус', 'Создана', 'Перенесена (раз)', 'Заметка'],
 };
 
@@ -330,7 +330,7 @@ async function writeEntryRow(cfg: GoogleConfig, entry: DiaryEntry): Promise<void
     row = [entry.entryId || '', entry.time, entry.date, entry.situation, entry.thoughts, entry.emotions, entry.behavior];
   } else {
     const statusLabel = entry.status === 'planned' ? 'план' : 'выполнено';
-    row = [entry.entryId || '', entry.time, entry.date, entry.activity, entry.sphere, entry.importance, entry.difficulty, entry.pleasure, entry.enjoyment, statusLabel];
+    row = [entry.entryId || '', entry.time, entry.date, entry.activity, entry.sphere, entry.importance, entry.urgency, entry.difficulty, entry.pleasure, entry.enjoyment, statusLabel];
   }
 
   const lastCol = String.fromCharCode(64 + row.length); // 7→'G', 10→'J'

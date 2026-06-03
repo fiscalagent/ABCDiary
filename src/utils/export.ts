@@ -22,6 +22,7 @@ function entryToText(entry: DiaryEntry): string {
     lines.push('Занятие:', entry.activity || '—', '');
     lines.push('Сфера:', entry.sphere || '—', '');
     lines.push(`Важность: ${entry.importance || '—'}`);
+    lines.push(`Срочность: ${entry.urgency || '—'}`);
     lines.push(`Сложность: ${entry.difficulty || '—'}`);
   }
 

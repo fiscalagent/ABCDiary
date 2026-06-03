@@ -125,6 +125,7 @@ export function EntryList({ entries, onView, onEvaluate, onNew, onLock, onSettin
                   <span className="entry-card-date">
                     {e.time && <span className="entry-card-time">{e.time}</span>}
                     {e.importance && <span className="planned-importance" title="Важность">❗{e.importance}</span>}
+                    {e.urgency && <span className="planned-importance" title="Срочность">⏰{e.urgency}</span>}
                   </span>
                   <span className="planned-cta">Оценить ›</span>
                 </div>
@@ -159,9 +160,10 @@ export function EntryList({ entries, onView, onEvaluate, onNew, onLock, onSettin
                   )}
                 </span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  {e.sheetType === 'tasks' && (e.importance || e.difficulty || e.pleasure) && (
+                  {e.sheetType === 'tasks' && (e.importance || e.urgency || e.difficulty || e.pleasure) && (
                     <span className="entry-card-scores">
                       {e.importance && <span title="Важность">❗{e.importance}</span>}
+                      {e.urgency && <span title="Срочность">⏰{e.urgency}</span>}
                       {e.difficulty && <span title="Сложность">💪{e.difficulty}</span>}
                       {e.pleasure && <span title="Удовлетворение">😊{e.pleasure}</span>}
                       {e.enjoyment && <span title="Удовольствие">😍{e.enjoyment}</span>}
