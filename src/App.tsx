@@ -317,6 +317,7 @@ export default function App() {
       activity: goal.title,
       sphere: parent?.title || '',
       importance: '',
+      urgency: '',
       difficulty: '',
       pleasure: '',
       enjoyment: '',
