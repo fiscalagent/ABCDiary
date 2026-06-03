@@ -6,6 +6,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.6.3',
+    date: '2026-06-03',
+    changes: [
+      'Параметр «Срочность (0–10)» для дел — задаётся при создании наравне с важностью (⏰)',
+    ],
+  },
+  {
     version: '1.6.2',
     date: '2026-05-30',
     changes: [
