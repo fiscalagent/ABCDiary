@@ -170,7 +170,7 @@ export function EntryList({ entries, onView, onEvaluate, onNew, onLock, onSettin
                     </span>
                   )}
                   <span className="entry-type-badge">
-                    {e.sheetType === 'emotions' ? '💭' : '✅'}
+                    {e.sheetType === 'emotions' ? '💭' : e.status === 'done' ? '✅' : '📋'}
                   </span>
                 </div>
               </div>
