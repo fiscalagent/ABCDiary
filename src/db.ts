@@ -25,10 +25,21 @@ export interface RawGoal {
   ciphertext: string;
 }
 
+// Mood/medication records are stored the same encrypted-blob way as goals,
+// one row per calendar day (decrypted on read in App.loadMoods).
+export interface RawMood {
+  id?: number;
+  createdAt: number;
+  updatedAt: number;
+  iv: string;
+  ciphertext: string;
+}
+
 class ABCDiaryDB extends Dexie {
   entries!: Table<RawEntry>;
   settings!: Table<Settings>;
   goals!: Table<RawGoal>;
+  moods!: Table<RawMood>;
 
   constructor() {
     super('ABCDiary');
@@ -41,6 +52,13 @@ class ABCDiaryDB extends Dexie {
       entries: '++id, createdAt',
       settings: '++id',
       goals: '++id, createdAt',
+    });
+    // v3: moods table for daily mood/medication tracking.
+    this.version(3).stores({
+      entries: '++id, createdAt',
+      settings: '++id',
+      goals: '++id, createdAt',
+      moods: '++id, createdAt',
     });
   }
 }

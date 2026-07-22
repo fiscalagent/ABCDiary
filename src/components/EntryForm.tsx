@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { EntryData, EmotionData, TaskData, TaskStatus, SheetType, DiaryEntry } from '../types';
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
+import { ddmmyyyyToDate, dateToDdmmyyyy, normalizeNumericText } from '../utils/parsing';
 
 interface FieldConfig {
   key: string;
@@ -108,15 +109,6 @@ function getPreviewFields(type: SheetType, mode: FormMode): FieldConfig[] {
   return mode === 'plan' ? TASK_PLAN_FIELDS : TASK_FULL_FIELDS;
 }
 
-const WORD_TO_DIGIT: Record<string, string> = {
-  'ноль': '0', 'нуль': '0',
-  'один': '1', 'одна': '1', 'раз': '1',
-  'два': '2', 'две': '2',
-  'три': '3', 'четыре': '4', 'пять': '5',
-  'шесть': '6', 'семь': '7', 'восемь': '8',
-  'девять': '9', 'десять': '10',
-};
-
 const NUMERIC_FIELDS = new Set(['importance', 'urgency', 'difficulty', 'pleasure', 'enjoyment']);
 const TIME_FIELDS = new Set(['time']);
 const DATE_FIELDS = new Set(['date']);
@@ -203,43 +195,18 @@ function composeTimeRange(from: string, to: string): string {
   return from || to;
 }
 
-function ddmmyyyyToDate(s: string): Date | null {
-  const m = s.trim().match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
-  if (!m) return null;
-  const d = new Date(+m[3], +m[2] - 1, +m[1]);
-  return isNaN(d.getTime()) ? null : d;
-}
-
-function dateToDdmmyyyy(d: Date): string {
-  return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}`;
-}
-
 const WEEKDAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 const MONTHS_RU = [
   'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
   'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь',
 ];
 
-function normalizeNumericText(text: string): string {
-  const trimmed = text.trim().toLowerCase();
-  let digits: string | null = null;
-  if (WORD_TO_DIGIT[trimmed]) digits = WORD_TO_DIGIT[trimmed];
-  else {
-    const match = trimmed.match(/\d+/);
-    if (match) digits = match[0];
-  }
-  if (digits === null) return text.trim();
-  // Ratings are 0–10; keep only an in-range value so the picker stays consistent.
-  const n = Number(digits);
-  return n >= 0 && n <= 10 ? String(n) : '';
-}
-
 // Horizontal 0–10 rating slider: tap or drag along the track, value snaps to
 // whole numbers. RATING_PAD (half the thumb width) keeps the thumb inside the
 // track at both ends. Empty value renders as "–" until the user picks one.
 const RATING_PAD = 12;
 
-function RatingInput({ value, onChange, className }: { value: string; onChange: (v: string) => void; className?: string }) {
+export function RatingInput({ value, onChange, className }: { value: string; onChange: (v: string) => void; className?: string }) {
   const trackRef = useRef<HTMLDivElement>(null);
   const filled = value.trim() !== '';
   const num = filled ? Math.min(10, Math.max(0, Math.round(Number(value) || 0))) : 0;
@@ -466,7 +433,7 @@ function TimeRangeInput({ value, onChange, className }: { value: string; onChang
   );
 }
 
-function DateInput({ value, onChange, className }: { value: string; onChange: (v: string) => void; className?: string }) {
+export function DateInput({ value, onChange, className }: { value: string; onChange: (v: string) => void; className?: string }) {
   const selected = ddmmyyyyToDate(value);
   const [open, setOpen] = useState(false);
   const [view, setView] = useState(() => {
@@ -561,11 +528,15 @@ interface Props {
   mode?: FormMode;
   onSave: (data: EntryData) => Promise<void>;
   onCancel: () => void;
+  // Mood/medication tracking lives outside the Эмоции/Дела entry model (one
+  // record per day, not per entry) — the sheet-select card just hands off to
+  // App's dedicated Mood screen instead of continuing the wizard below.
+  onSelectMood?: () => void;
 }
 
 type Phase = 'select' | 'record' | 'preview';
 
-export function EntryForm({ initial, initialSheetType, mode, onSave, onCancel }: Props) {
+export function EntryForm({ initial, initialSheetType, mode, onSave, onCancel, onSelectMood }: Props) {
   const effectiveMode: FormMode = mode ?? (initial ? 'edit' : 'plan');
   const [phase, setPhase] = useState<Phase>(
     // Editing reuses the same field-by-field record flow as input (pre-filled),
@@ -741,6 +712,16 @@ export function EntryForm({ initial, initialSheetType, mode, onSave, onCancel }:
             </div>
             <span className="sheet-select-arrow">›</span>
           </button>
+          {onSelectMood && (
+            <button className="sheet-select-card" onClick={onSelectMood}>
+              <span className="sheet-select-icon">😊</span>
+              <div className="sheet-select-text">
+                <strong>Настроение</strong>
+                <p>Утро · день · вечер · лекарства</p>
+              </div>
+              <span className="sheet-select-arrow">›</span>
+            </button>
+          )}
         </div>
       </div>
     );

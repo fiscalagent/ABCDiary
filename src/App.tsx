@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { db } from './db';
-import type { DiaryEntry, EntryData, SheetType, Goal, GoalData, GoalStatus, GoalHorizon, TaskData } from './types';
+import type { DiaryEntry, EntryData, SheetType, Goal, GoalData, GoalStatus, GoalHorizon, TaskData, MoodData, MoodEntry } from './types';
 import { encryptData, decryptData } from './crypto';
 import type { GoogleConfig } from './utils/gsheets';
 import {
@@ -13,6 +13,7 @@ import {
   getActiveAccount,
   exportEntryToSheet,
   exportGoalToSheet,
+  exportMoodToSheet,
   extractSpreadsheetId,
 } from './utils/gsheets';
 import { CHANGELOG } from './changelog';
@@ -26,6 +27,8 @@ import { HelpScreen } from './components/HelpScreen';
 import { GoalList } from './components/GoalList';
 import { GoalForm } from './components/GoalForm';
 import { GoalView } from './components/GoalView';
+import { MoodForm } from './components/MoodForm';
+import { MoodCalendar } from './components/MoodCalendar';
 
 type Screen =
   | { name: 'loading' }
@@ -41,13 +44,16 @@ type Screen =
   | { name: 'goals' }
   | { name: 'goalNew'; horizon?: GoalHorizon; parentGoalId?: string }
   | { name: 'goalView'; goalDbId: number }
-  | { name: 'goalEdit'; goalDbId: number };
+  | { name: 'goalEdit'; goalDbId: number }
+  | { name: 'mood'; date?: string; from?: 'list' | 'moodCalendar' }
+  | { name: 'moodCalendar' };
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>({ name: 'loading' });
   const [cryptoKey, setCryptoKey] = useState<CryptoKey | null>(null);
   const [entries, setEntries] = useState<DiaryEntry[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
+  const [moods, setMoods] = useState<MoodEntry[]>([]);
   const [googleConfig, setGoogleConfig] = useState<GoogleConfig | null>(null);
   const [settingsMsg, setSettingsMsg] = useState('');
   const [syncToast, setSyncToast] = useState('');
@@ -65,8 +71,10 @@ export default function App() {
   }, []);
 
   const goBack = useCallback(() => {
-    if (screen.name === 'new' || screen.name === 'googleSettings' || screen.name === 'view' || screen.name === 'help' || screen.name === 'evaluate' || screen.name === 'goals') {
+    if (screen.name === 'new' || screen.name === 'googleSettings' || screen.name === 'view' || screen.name === 'help' || screen.name === 'evaluate' || screen.name === 'goals' || screen.name === 'moodCalendar') {
       setScreen({ name: 'list' });
+    } else if (screen.name === 'mood') {
+      setScreen(screen.from === 'moodCalendar' ? { name: 'moodCalendar' } : { name: 'list' });
     } else if (screen.name === 'edit') {
       setScreen({ name: 'view', entryId: screen.entryId });
     } else if (screen.name === 'goalNew') {
@@ -89,7 +97,7 @@ export default function App() {
   // Push a history entry when entering sub-screens so Android back button triggers popstate
   const prevScreenName = useRef(screen.name);
   useEffect(() => {
-    const subScreens = ['new', 'view', 'edit', 'evaluate', 'googleSettings', 'help', 'goals', 'goalNew', 'goalView', 'goalEdit'];
+    const subScreens = ['new', 'view', 'edit', 'evaluate', 'googleSettings', 'help', 'goals', 'goalNew', 'goalView', 'goalEdit', 'mood', 'moodCalendar'];
     if (subScreens.includes(screen.name) && prevScreenName.current !== screen.name) {
       history.pushState(null, '');
     }
@@ -139,13 +147,29 @@ export default function App() {
     setGoals(decrypted);
   }, []);
 
+  const loadMoods = useCallback(async (key: CryptoKey) => {
+    const raw = await db.moods.orderBy('createdAt').reverse().toArray();
+    const decrypted = await Promise.all(
+      raw.map(async r => {
+        const data = await decryptData(r.iv, r.ciphertext, key) as MoodData;
+        return {
+          ...data,
+          id: r.id!,
+          createdAt: new Date(r.createdAt),
+          updatedAt: new Date(r.updatedAt),
+        } as MoodEntry;
+      })
+    );
+    setMoods(decrypted);
+  }, []);
+
   const handleUnlock = useCallback(
     async (key: CryptoKey) => {
       setCryptoKey(key);
-      await Promise.all([loadEntries(key), loadGoals(key)]);
+      await Promise.all([loadEntries(key), loadGoals(key), loadMoods(key)]);
       setScreen({ name: 'list' });
     },
-    [loadEntries, loadGoals]
+    [loadEntries, loadGoals, loadMoods]
   );
 
   const handleSave = async (data: EntryData, editId?: number) => {
@@ -191,6 +215,49 @@ export default function App() {
     await db.entries.delete(id);
     if (cryptoKey) await loadEntries(cryptoKey);
     setScreen({ name: 'list' });
+  };
+
+  // Mood/medication: one record per calendar day, upserted by date (not a
+  // dedicated screen id) — the form always hands back the full day's data,
+  // and we look up whether that date already has a row to decide update vs
+  // create, mirroring persistGoal's create-or-update shape.
+  const persistMood = useCallback(
+    async (data: MoodData): Promise<MoodEntry> => {
+      if (!cryptoKey) throw new Error('locked');
+      const now = Date.now();
+      const existing = moods.find(m => m.date === data.date);
+      const { iv, ciphertext } = await encryptData(data, cryptoKey);
+      let dbId: number;
+      let createdAt: number;
+      if (existing) {
+        createdAt = existing.createdAt.getTime();
+        await db.moods.update(existing.id, { iv, ciphertext, updatedAt: now });
+        dbId = existing.id;
+      } else {
+        createdAt = now;
+        dbId = (await db.moods.add({ iv, ciphertext, createdAt: now, updatedAt: now })) as number;
+      }
+      const mood: MoodEntry = { ...data, id: dbId, createdAt: new Date(createdAt), updatedAt: new Date(now) };
+      await loadMoods(cryptoKey);
+      if (googleConfig) {
+        exportMoodToSheet(googleConfig, mood)
+          .then(() => {
+            setSyncToast('✅ Настроение синхронизировано');
+            setTimeout(() => setSyncToast(''), 3000);
+          })
+          .catch(err => {
+            setSyncToast(`⚠️ Ошибка синхронизации: ${err instanceof Error ? err.message : String(err)}`);
+            setTimeout(() => setSyncToast(''), 6000);
+          });
+      }
+      return mood;
+    },
+    [cryptoKey, moods, googleConfig, loadMoods]
+  );
+
+  const handleSaveMood = async (data: MoodData, returnTo: Screen) => {
+    await persistMood(data);
+    setScreen(returnTo);
   };
 
   // Persist a goal (create or update). Optimistically updates the list and
@@ -345,6 +412,7 @@ export default function App() {
     setCryptoKey(null);
     setEntries([]);
     setGoals([]);
+    setMoods([]);
     setScreen({ name: 'locked' });
   };
 
@@ -439,6 +507,7 @@ export default function App() {
           onSettings={() => setScreen({ name: 'googleSettings' })}
           onHelp={() => setScreen({ name: 'help' })}
           onGoals={() => setScreen({ name: 'goals' })}
+          onMoodCalendar={() => setScreen({ name: 'moodCalendar' })}
         />
       </>
     );
@@ -449,7 +518,32 @@ export default function App() {
         initialSheetType={screen.sheetType}
         onSave={data => handleSave(data)}
         onCancel={() => setScreen({ name: 'list' })}
+        onSelectMood={() => setScreen({ name: 'mood', from: 'list' })}
       />
+    );
+  }
+  if (screen.name === 'mood') {
+    const returnTo: Screen = screen.from === 'moodCalendar' ? { name: 'moodCalendar' } : { name: 'list' };
+    return (
+      <MoodForm
+        moods={moods}
+        initialDate={screen.date}
+        onSave={data => handleSaveMood(data, returnTo)}
+        onCancel={() => setScreen(returnTo)}
+      />
+    );
+  }
+  if (screen.name === 'moodCalendar') {
+    return (
+      <>
+        {updateBanner}
+        {toast}
+        <MoodCalendar
+          moods={moods}
+          onBack={() => setScreen({ name: 'list' })}
+          onOpenDay={dateStr => setScreen({ name: 'mood', date: dateStr, from: 'moodCalendar' })}
+        />
+      </>
     );
   }
   if (screen.name === 'edit') {

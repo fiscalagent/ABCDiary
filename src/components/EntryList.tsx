@@ -11,6 +11,7 @@ interface Props {
   onSettings: () => void;
   onHelp: () => void;
   onGoals: () => void;
+  onMoodCalendar: () => void;
 }
 
 function isPlanned(e: DiaryEntry): boolean {
@@ -48,7 +49,7 @@ function clip(text: string, max = 80) {
   return text.length > max ? text.slice(0, max) + '…' : text;
 }
 
-export function EntryList({ entries, onView, onEvaluate, onNew, onLock, onSettings, onHelp, onGoals }: Props) {
+export function EntryList({ entries, onView, onEvaluate, onNew, onLock, onSettings, onHelp, onGoals, onMoodCalendar }: Props) {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<FilterKey>('all');
 
@@ -87,6 +88,7 @@ export function EntryList({ entries, onView, onEvaluate, onNew, onLock, onSettin
         <h1 className="app-title-sm">ABCDiary</h1>
         <div style={{ display: 'flex', gap: 4 }}>
           <button className="icon-btn" onClick={onGoals} title="Цели">🎯</button>
+          <button className="icon-btn" onClick={onMoodCalendar} title="Настроение">😊</button>
           <button className="icon-btn help" onClick={onHelp} title="Инструкция">?</button>
           <button className="icon-btn" onClick={onSettings} title="Настройки">⚙️</button>
           <button className="icon-btn" onClick={onLock} title="Заблокировать">🔒</button>

@@ -1359,6 +1359,77 @@ body {
 }
 
 /* ══════════════════════════════════════════
+   Mood form — inline per-field mic button
+══════════════════════════════════════════ */
+.mic-inline-btn {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.mic-inline-btn.recording {
+  background: var(--abc-recording);
+  border-color: var(--abc-recording);
+}
+
+/* ══════════════════════════════════════════
+   Mood calendar — morning/day/evening dots per day
+══════════════════════════════════════════ */
+.mood-cal-cell {
+  flex-direction: column;
+  gap: 3px;
+  padding: 5px 0 6px;
+  font-weight: 600;
+}
+.mood-cal-daynum { line-height: 1; }
+.mood-cal-dots {
+  display: flex;
+  gap: 3px;
+  pointer-events: none;
+}
+.mood-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--border);
+}
+.mood-cell-red    { background: #e0524a; color: #fff; }
+.mood-cell-yellow { background: #f1c542; color: #3a2e00; }
+.mood-cell-green  { background: #66bb6a; color: #fff; }
+.mood-cell-bright { background: #00c853; color: #fff; }
+
+.mood-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 4px 2px;
+}
+.mood-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.mood-legend-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  display: inline-block;
+}
+.mood-legend-swatch.mood-legend-empty { background: var(--border); }
+
+/* ══════════════════════════════════════════
    Dark theme
 ══════════════════════════════════════════ */
 @media (prefers-color-scheme: dark) {

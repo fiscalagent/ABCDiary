@@ -1,4 +1,4 @@
-import type { DiaryEntry, Goal, GoalHorizon, GoalStatus } from '../types';
+import type { DiaryEntry, Goal, GoalHorizon, GoalStatus, MoodEntry } from '../types';
 
 declare global {
   interface Window {
@@ -256,6 +256,7 @@ export const SHEET_NAMES: Record<string, string> = {
   emotions: 'Эмоции',
   tasks: 'Дела',
   goals: 'Цели',
+  moods: 'Настроение',
 };
 
 const HORIZON_LABEL: Record<GoalHorizon, string> = {
@@ -275,6 +276,7 @@ const HEADERS: Record<string, string[]> = {
   // existing column layout — the new column lands in J with an empty header.
   Дела: ['ID', 'Время', 'Дата', 'Занятие', 'Сфера', 'Важность (0-10)', 'Срочность (0-10)', 'Сложность (0-10)', 'Удовлетворение (0-10)', 'Удовольствие (0-10)', 'Статус'],
   Цели: ['ID', 'Родитель', 'Название', 'Горизонт', 'Дедлайн', 'Статус', 'Создана', 'Перенесена (раз)', 'Заметка'],
+  Настроение: ['Дата', 'Утро', 'День', 'Вечер', 'Лекарство 1', 'Доза 1', 'Лекарство 2', 'Доза 2', 'Лекарство 3', 'Доза 3', 'Комментарий'],
 };
 
 export async function initSpreadsheet(cfg: GoogleConfig): Promise<void> {
@@ -405,6 +407,56 @@ async function writeGoalRow(cfg: GoogleConfig, goal: Goal): Promise<void> {
   const rows = colA.values ?? [];
   if (rows[0]?.[0] === 'ID') {
     const rowIdx = rows.findIndex((r, i) => i > 0 && r[0] === goal.goalId);
+    if (rowIdx !== -1) {
+      const sheetRow = rowIdx + 1;
+      await sheetsReq(
+        cfg,
+        `/values/${encodeURIComponent(`${sheetName}!A${sheetRow}:${lastCol}${sheetRow}`)}?valueInputOption=USER_ENTERED`,
+        'PUT',
+        { values: [row] }
+      );
+      return;
+    }
+  }
+
+  await sheetsReq(
+    cfg,
+    `/values/${encodeURIComponent(sheetName + '!A1')}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
+    'POST',
+    { values: [row] }
+  );
+}
+
+// Sync a mood row to the Настроение sheet. Unlike entries/goals there's no ID
+// column — one row per calendar day, so the date itself (col A) is the upsert
+// key: morning/day/evening/meds/comment all land on the same row as the day
+// gets filled in through the day.
+export async function exportMoodToSheet(cfg: GoogleConfig, mood: MoodEntry): Promise<void> {
+  try {
+    await writeMoodRow(cfg, mood);
+  } catch (err) {
+    if (!isMissingSheetError(err)) throw err;
+    await initSpreadsheet(cfg);
+    await writeMoodRow(cfg, mood);
+  }
+}
+
+async function writeMoodRow(cfg: GoogleConfig, mood: MoodEntry): Promise<void> {
+  const sheetName = SHEET_NAMES.moods;
+  const row: string[] = [
+    mood.date, mood.morning, mood.day, mood.evening,
+    mood.med1, mood.dose1, mood.med2, mood.dose2, mood.med3, mood.dose3,
+    mood.comment,
+  ];
+  const lastCol = String.fromCharCode(64 + row.length); // 11 → 'K'
+
+  const colA = await sheetsReq<{ values?: string[][] }>(
+    cfg,
+    `/values/${encodeURIComponent(sheetName + '!A:A')}`
+  );
+  const rows = colA.values ?? [];
+  if (rows[0]?.[0] === 'Дата') {
+    const rowIdx = rows.findIndex((r, i) => i > 0 && r[0] === mood.date);
     if (rowIdx !== -1) {
       const sheetRow = rowIdx + 1;
       await sheetsReq(

@@ -57,3 +57,21 @@ export interface GoalData {
 }
 
 export type Goal = GoalData & { id: number; createdAt: Date; updatedAt: Date };
+
+/* ── Mood & medication tracking (one record per calendar day) ──── */
+
+export interface MoodData {
+  date: string; // DD.MM.YYYY — unique key, one record per day
+  morning: string; // 0–10
+  day: string; // 0–10
+  evening: string; // 0–10
+  med1: string;
+  dose1: string;
+  med2: string;
+  dose2: string;
+  med3: string;
+  dose3: string;
+  comment: string;
+}
+
+export type MoodEntry = MoodData & { id: number; createdAt: Date; updatedAt: Date };
