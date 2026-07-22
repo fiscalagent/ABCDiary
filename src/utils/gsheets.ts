@@ -280,7 +280,15 @@ const HEADERS: Record<string, string[]> = {
 };
 
 export async function initSpreadsheet(cfg: GoogleConfig): Promise<void> {
-  const meta = await sheetsReq<{ sheets: { properties: { title: string } }[] }>(cfg, '');
+  // Restricted to just the titles — an unfiltered spreadsheets.get also
+  // returns per-sheet formatting/conditional-format metadata, which on a
+  // long-lived spreadsheet can be large enough to make this the flakiest
+  // request in the app (the one place we'd never otherwise exercise a big
+  // GET, since every other call here fetches a single narrow range).
+  const meta = await sheetsReq<{ sheets: { properties: { title: string } }[] }>(
+    cfg,
+    '?fields=sheets.properties.title'
+  );
   const existing = new Set(meta.sheets.map(s => s.properties.title));
 
   const addRequests = Object.values(SHEET_NAMES)
@@ -309,6 +317,24 @@ export async function initSpreadsheet(cfg: GoogleConfig): Promise<void> {
 // doesn't exist yet — meaning the spreadsheet hasn't been initialized.
 function isMissingSheetError(err: unknown): boolean {
   return err instanceof Error && /unable to parse range/i.test(err.message);
+}
+
+// fetch() itself (not a Sheets error response) rejects with this when the
+// request never completes — dropped wifi/mobile signal mid-request. First-time
+// sheet creation is the most exposed to this: it's several sequential requests
+// (metadata, batchUpdate, header writes) instead of the usual single small one.
+// Worth exactly one retry — a real, persistent failure still surfaces after that.
+function isNetworkError(err: unknown): boolean {
+  return err instanceof TypeError && /failed to fetch/i.test(err.message);
+}
+
+async function withNetworkRetry<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (err) {
+    if (!isNetworkError(err)) throw err;
+    return await fn();
+  }
 }
 
 // Upsert a row into `sheetName`, matched by `keyValue` in column A (only when
@@ -356,13 +382,15 @@ async function upsertRow(
 // Sync a row to its sheet. If the «Эмоции»/«Дела» tab doesn't exist yet,
 // create it (and headers) on the fly and retry — so no manual "init" step.
 export async function exportEntryToSheet(cfg: GoogleConfig, entry: DiaryEntry): Promise<void> {
-  try {
-    await writeEntryRow(cfg, entry);
-  } catch (err) {
-    if (!isMissingSheetError(err)) throw err;
-    await initSpreadsheet(cfg);
-    await writeEntryRow(cfg, entry);
-  }
+  return withNetworkRetry(async () => {
+    try {
+      await writeEntryRow(cfg, entry);
+    } catch (err) {
+      if (!isMissingSheetError(err)) throw err;
+      await initSpreadsheet(cfg);
+      await writeEntryRow(cfg, entry);
+    }
+  });
 }
 
 async function writeEntryRow(cfg: GoogleConfig, entry: DiaryEntry): Promise<void> {
@@ -389,13 +417,15 @@ function ddmmyyyy(d: Date): string {
 // if the row exists we update it, otherwise append. Creates the sheet on the
 // fly if it's missing (older spreadsheets).
 export async function exportGoalToSheet(cfg: GoogleConfig, goal: Goal): Promise<void> {
-  try {
-    await writeGoalRow(cfg, goal);
-  } catch (err) {
-    if (!isMissingSheetError(err)) throw err;
-    await initSpreadsheet(cfg);
-    await writeGoalRow(cfg, goal);
-  }
+  return withNetworkRetry(async () => {
+    try {
+      await writeGoalRow(cfg, goal);
+    } catch (err) {
+      if (!isMissingSheetError(err)) throw err;
+      await initSpreadsheet(cfg);
+      await writeGoalRow(cfg, goal);
+    }
+  });
 }
 
 async function writeGoalRow(cfg: GoogleConfig, goal: Goal): Promise<void> {
@@ -419,13 +449,15 @@ async function writeGoalRow(cfg: GoogleConfig, goal: Goal): Promise<void> {
 // key: morning/day/evening/meds/comment all land on the same row as the day
 // gets filled in through the day.
 export async function exportMoodToSheet(cfg: GoogleConfig, mood: MoodEntry): Promise<void> {
-  try {
-    await writeMoodRow(cfg, mood);
-  } catch (err) {
-    if (!isMissingSheetError(err)) throw err;
-    await initSpreadsheet(cfg);
-    await writeMoodRow(cfg, mood);
-  }
+  return withNetworkRetry(async () => {
+    try {
+      await writeMoodRow(cfg, mood);
+    } catch (err) {
+      if (!isMissingSheetError(err)) throw err;
+      await initSpreadsheet(cfg);
+      await writeMoodRow(cfg, mood);
+    }
+  });
 }
 
 async function writeMoodRow(cfg: GoogleConfig, mood: MoodEntry): Promise<void> {
