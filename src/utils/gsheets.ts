@@ -356,10 +356,10 @@ async function upsertRow(
       `/values/${encodeURIComponent(sheetName + '!A:A')}`
     );
     const rows = colA.values ?? [];
-    // Trimmed comparison: a stray space in a manually-created header/date cell
-    // (copy-paste, autocorrect) would otherwise silently defeat the match and
+    // Trimmed + case-insensitive: a manually-created header cell ("дата" vs
+    // "Дата", a stray space) would otherwise silently defeat the match and
     // every save would append a duplicate row instead of updating in place.
-    if (rows[0]?.[0]?.trim() === headerMarker) {
+    if (rows[0]?.[0]?.trim().toLowerCase() === headerMarker.toLowerCase()) {
       const rowIdx = rows.findIndex((r, i) => i > 0 && (r[0] ?? '').trim() === keyValue);
       if (rowIdx !== -1) {
         const sheetRow = rowIdx + 1;
