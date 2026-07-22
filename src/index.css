@@ -489,48 +489,6 @@ body {
   color: var(--text);
 }
 
-/* Action bar */
-.action-bar {
-  position: fixed;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 100%;
-  max-width: 480px;
-  display: flex;
-  background: var(--surface);
-  border-top: 1px solid var(--border);
-  padding: 10px 12px calc(10px + var(--safe-bottom));
-  gap: 8px;
-  overflow-x: auto;
-}
-
-.action-btn {
-  flex: 1;
-  padding: 10px 6px;
-  border: 1px solid var(--primary);
-  border-radius: 8px;
-  background: none;
-  color: var(--primary);
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  font-family: inherit;
-  transition: all 0.15s;
-  white-space: nowrap;
-  min-width: 0;
-}
-
-.action-btn:active {
-  background: var(--primary);
-  color: white;
-}
-
-.action-btn:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
 /* ══════════════════════════════════════════
    Sheet selector (EntryForm phase: select)
 ══════════════════════════════════════════ */
@@ -663,21 +621,6 @@ body {
 .recording-border {
   border-color: var(--abc-recording) !important;
   box-shadow: 0 0 0 3px var(--abc-recording-ring);
-}
-
-.time-range-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.time-range-row > input {
-  flex: 1;
-  min-width: 0;
-}
-.time-range-sep {
-  color: var(--text-secondary);
-  font-size: 18px;
-  user-select: none;
 }
 
 /* ── Custom date picker ── */

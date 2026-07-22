@@ -2,8 +2,114 @@ interface Props {
   onBack: () => void;
 }
 
-function printHelp() {
-  const html = `<!DOCTYPE html>
+// Single source of truth for the help text: the same steps feed both the
+// on-screen cards and the printable PDF, so the two can no longer drift apart
+// as they did when each was hand-written separately. Content is static and
+// author-controlled (never user input), so the inline <strong>/<em>/<span>
+// markup is safe to render via dangerouslySetInnerHTML / string interpolation.
+interface HelpCard {
+  title: string;
+  steps: string[];
+}
+interface HelpNote {
+  note: string;
+}
+type HelpEntry = HelpCard | HelpNote;
+interface HelpSection {
+  title: string;
+  cards: HelpEntry[];
+}
+
+function isNote(card: HelpEntry): card is HelpNote {
+  return 'note' in card;
+}
+
+const HELP_CONTENT: HelpSection[] = [
+  {
+    title: 'А) Для пациента',
+    cards: [
+      {
+        title: 'Первый запуск',
+        steps: [
+          'Откройте приложение в браузере на телефоне.',
+          'Придумайте и введите PIN-код — он шифрует все записи.',
+          'Добавьте на экран «Домой»:<br><span class="help-sub">iPhone: «Поделиться» → «На экран "Домой"»</span><br><span class="help-sub">Android: «Установить приложение» в браузере</span>',
+        ],
+      },
+      {
+        title: 'Настройка таблицы для терапевта',
+        steps: [
+          'Создайте новую Google Таблицу на <strong>sheets.google.com</strong>.',
+          'Поделитесь ею с терапевтом: «Поделиться» → email терапевта → «Читатель».',
+          'В приложении: ⚙️ → вставьте ссылку на таблицу → введите Gmail → «Сохранить и войти».',
+        ],
+      },
+      {
+        title: 'Эмоции',
+        steps: [
+          'Нажмите <strong>+</strong> → <em>Эмоции</em>. Пройдите по полям: ситуация → мысли → эмоции → поведение.',
+          'Нажмите на поле и говорите вслух — речь переводится в текст. Можно и печатать.',
+          'Сохраните — запись уйдёт в таблицу и останется на устройстве.',
+        ],
+      },
+      {
+        title: 'Дела — утром (план)',
+        steps: [
+          'Нажмите <strong>+</strong> → <em>Дело (план)</em>.',
+          'Заполните 4 поля: занятие, сфера, когда планируете, важность&nbsp;0–10.',
+          'Сохраните — дело появится в секции <strong>«🗓 План на сегодня»</strong> наверху главного экрана.',
+          'Повторите для каждого дела на день.',
+        ],
+      },
+      {
+        title: 'Дела — по ходу дня (оценка)',
+        steps: [
+          'Тапните по карточке в «Плане на сегодня».',
+          'Оцените 3 параметра: сложность, удовольствие во время, удовлетворение после. Время и важность можно подправить.',
+          '<strong>«✅ Готово»</strong> — дело уйдёт из плана в обычную ленту, в таблице статус станет «выполнено».',
+          '<strong>«💾 Сохранить (пока в плане)»</strong> — если оценили частично, вернётесь позже.',
+        ],
+      },
+    ],
+  },
+  {
+    title: 'Б) Для терапевта',
+    cards: [
+      {
+        title: 'Подготовка',
+        steps: [
+          'Попросите пациента создать таблицу и поделиться ею с вашим email.',
+          'Примите приглашение — таблица появится в вашем Google Drive.',
+        ],
+      },
+      {
+        title: 'Работа с данными',
+        steps: [
+          'Откройте таблицу — два листа: <strong>«Эмоции»</strong> и <strong>«Дела»</strong>.',
+          'Новые записи появляются автоматически при каждом сохранении пациента.',
+          'Фильтруйте, сортируйте и стройте графики в Google Sheets.',
+        ],
+      },
+      {
+        note: '<strong>Важно:</strong> в таблицу попадают только те записи, которые пациент сохранил сам. На устройстве они хранятся в зашифрованном виде и не доступны никому без PIN-кода.',
+      },
+    ],
+  },
+];
+
+function buildPrintHtml(): string {
+  const body = HELP_CONTENT.map(section => {
+    const cardsHtml = section.cards
+      .map(card =>
+        isNote(card)
+          ? `<p class="note">${card.note}</p>`
+          : `<h3>${card.title}</h3><ol>${card.steps.map(s => `<li>${s}</li>`).join('')}</ol>`
+      )
+      .join('');
+    return `<h2>${section.title}</h2>${cardsHtml}`;
+  }).join('');
+
+  return `<!DOCTYPE html>
 <html lang="ru">
 <head>
 <meta charset="utf-8" />
@@ -26,70 +132,15 @@ function printHelp() {
 <body>
 <h1>ABCDiary — Инструкция</h1>
 <p class="subtitle">Голосовой дневник с шифрованием и синхронизацией в Google Таблицы</p>
-
-<h2>А) Для пациента</h2>
-
-<h3>Первый запуск</h3>
-<ol>
-  <li>Откройте приложение в браузере на телефоне.</li>
-  <li>Придумайте и введите PIN-код — он шифрует все записи.</li>
-  <li>Чтобы добавить на экран «Домой»: на iPhone — «Поделиться» → «На экран "Домой"»; на Android — «Установить приложение» в браузере.</li>
-</ol>
-
-<h3>Настройка таблицы для терапевта</h3>
-<ol>
-  <li>Создайте новую Google Таблицу на <strong>sheets.google.com</strong>.</li>
-  <li>Поделитесь ею с терапевтом: кнопка «Поделиться» → введите email терапевта → «Читатель» или «Комментатор».</li>
-  <li>В приложении нажмите ⚙️ → вставьте ссылку на таблицу → введите свой Gmail → «Сохранить и войти в Google».</li>
-</ol>
-
-<h3>Эмоции</h3>
-<ol>
-  <li>Нажмите <strong>+</strong> → <em>Эмоции</em>. Пройдите по полям: ситуация → мысли → эмоции → поведение.</li>
-  <li>Нажмите на поле и говорите вслух — речь переводится в текст автоматически. Можно и печатать.</li>
-  <li>Сохраните — запись уйдёт в таблицу и останется на устройстве в зашифрованном виде.</li>
-</ol>
-
-<h3>Дела — утром (план)</h3>
-<ol>
-  <li>Нажмите <strong>+</strong> → <em>Дело (план)</em>.</li>
-  <li>Заполните 4 поля: занятие, сфера, когда планируете, важность 0–10.</li>
-  <li>Сохраните. Дело появится в секции <strong>«🗓 План на сегодня»</strong> на главном экране.</li>
-  <li>Повторите для каждого дела на день.</li>
-</ol>
-
-<h3>Дела — по ходу дня (оценка)</h3>
-<ol>
-  <li>Тапните по карточке в «Плане на сегодня».</li>
-  <li>Оцените 3 параметра: сложность, удовольствие во время, удовлетворение после. Время и важность можно подправить, если по факту вышло иначе.</li>
-  <li>Нажмите <strong>«✅ Готово»</strong> — дело уйдёт из плана в обычную ленту, в таблице статус станет «выполнено».</li>
-  <li>Если оценили частично — нажмите <strong>«💾 Сохранить (пока в плане)»</strong>, чтобы вернуться к нему позже.</li>
-</ol>
-
-<h2>Б) Для терапевта</h2>
-
-<h3>Подготовка</h3>
-<ol>
-  <li>Попросите пациента создать Google Таблицу и поделиться ею с вашим email.</li>
-  <li>Примите приглашение — таблица появится в вашем Google Drive.</li>
-</ol>
-
-<h3>Работа с данными</h3>
-<ol>
-  <li>Откройте таблицу — там два листа: <strong>«Эмоции»</strong> и <strong>«Дела»</strong>.</li>
-  <li>В листе «Дела» колонка <strong>«Статус»</strong> показывает «план» или «выполнено» — запланированные дела видны сразу при создании, оценки появляются по мере выполнения.</li>
-  <li>Новые записи пациента появляются автоматически после каждого сохранения.</li>
-  <li>Можно фильтровать, сортировать и строить графики стандартными средствами Google Sheets.</li>
-</ol>
-
-<p class="note"><strong>Важно:</strong> в таблицу попадают только те записи, которые пациент сохранил сам. На устройстве они хранятся в зашифрованном виде и не доступны никому без PIN-кода.</p>
-
+${body}
 </body>
 </html>`;
+}
 
+function printHelp() {
   const w = window.open('', '_blank');
   if (!w) return;
-  w.document.write(html);
+  w.document.write(buildPrintHtml());
   w.document.close();
   w.focus();
   setTimeout(() => w.print(), 400);
@@ -105,91 +156,33 @@ export function HelpScreen({ onBack }: Props) {
       </header>
 
       <div className="form-body help-body">
-
-        <section className="help-section">
-          <h2 className="help-section-title">А) Для пациента</h2>
-
-          <div className="help-card">
-            <h3>Первый запуск</h3>
-            <ol>
-              <li>Откройте приложение в браузере на телефоне.</li>
-              <li>Придумайте и введите PIN-код — он шифрует все записи.</li>
-              <li>
-                Добавьте на экран «Домой»:<br />
-                <span className="help-sub">iPhone: «Поделиться» → «На экран "Домой"»</span><br />
-                <span className="help-sub">Android: «Установить приложение» в браузере</span>
-              </li>
-            </ol>
-          </div>
-
-          <div className="help-card">
-            <h3>Настройка таблицы для терапевта</h3>
-            <ol>
-              <li>Создайте новую Google Таблицу на <strong>sheets.google.com</strong>.</li>
-              <li>Поделитесь ею с терапевтом: «Поделиться» → email терапевта → «Читатель».</li>
-              <li>В приложении: ⚙️ → вставьте ссылку на таблицу → введите Gmail → «Сохранить и войти».</li>
-            </ol>
-          </div>
-
-          <div className="help-card">
-            <h3>Эмоции</h3>
-            <ol>
-              <li>Нажмите <strong>+</strong> → <em>Эмоции</em>. Пройдите по полям: ситуация → мысли → эмоции → поведение.</li>
-              <li>Нажмите на поле и говорите вслух — речь переводится в текст. Можно и печатать.</li>
-              <li>Сохраните — запись уйдёт в таблицу и останется на устройстве.</li>
-            </ol>
-          </div>
-
-          <div className="help-card">
-            <h3>Дела — утром (план)</h3>
-            <ol>
-              <li>Нажмите <strong>+</strong> → <em>Дело (план)</em>.</li>
-              <li>Заполните 4 поля: занятие, сфера, когда планируете, важность&nbsp;0–10.</li>
-              <li>Сохраните — дело появится в секции <strong>«🗓 План на сегодня»</strong> наверху главного экрана.</li>
-              <li>Повторите для каждого дела на день.</li>
-            </ol>
-          </div>
-
-          <div className="help-card">
-            <h3>Дела — по ходу дня (оценка)</h3>
-            <ol>
-              <li>Тапните по карточке в «Плане на сегодня».</li>
-              <li>Оцените 3 параметра: сложность, удовольствие во время, удовлетворение после. Время и важность можно подправить.</li>
-              <li><strong>«✅ Готово»</strong> — дело уйдёт из плана в обычную ленту, в таблице статус станет «выполнено».</li>
-              <li><strong>«💾 Сохранить (пока в плане)»</strong> — если оценили частично, вернётесь позже.</li>
-            </ol>
-          </div>
-        </section>
-
-        <section className="help-section">
-          <h2 className="help-section-title">Б) Для терапевта</h2>
-
-          <div className="help-card">
-            <h3>Подготовка</h3>
-            <ol>
-              <li>Попросите пациента создать таблицу и поделиться ею с вашим email.</li>
-              <li>Примите приглашение — таблица появится в вашем Google Drive.</li>
-            </ol>
-          </div>
-
-          <div className="help-card">
-            <h3>Работа с данными</h3>
-            <ol>
-              <li>Откройте таблицу — два листа: <strong>«Эмоции»</strong> и <strong>«Дела»</strong>.</li>
-              <li>Новые записи появляются автоматически при каждом сохранении пациента.</li>
-              <li>Фильтруйте, сортируйте и стройте графики в Google Sheets.</li>
-            </ol>
-          </div>
-
-          <div className="help-card help-card--note">
-            <strong>Важно:</strong> в таблицу попадают только те записи, которые пациент сохранил сам. На устройстве они хранятся в зашифрованном виде и не доступны никому без PIN-кода.
-          </div>
-        </section>
+        {HELP_CONTENT.map(section => (
+          <section key={section.title} className="help-section">
+            <h2 className="help-section-title">{section.title}</h2>
+            {section.cards.map((card, i) =>
+              isNote(card) ? (
+                <div
+                  key={i}
+                  className="help-card help-card--note"
+                  dangerouslySetInnerHTML={{ __html: card.note }}
+                />
+              ) : (
+                <div key={i} className="help-card">
+                  <h3>{card.title}</h3>
+                  <ol>
+                    {card.steps.map((s, j) => (
+                      <li key={j} dangerouslySetInnerHTML={{ __html: s }} />
+                    ))}
+                  </ol>
+                </div>
+              )
+            )}
+          </section>
+        ))}
 
         <button className="settings-btn secondary" style={{ marginTop: 8 }} onClick={printHelp}>
           🖨️ Сохранить как PDF
         </button>
-
       </div>
     </div>
   );

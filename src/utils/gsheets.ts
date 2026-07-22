@@ -67,14 +67,14 @@ try {
       tokenExpiry = saved.expiry;
     }
   }
-} catch {}
+} catch { /* ignore malformed/inaccessible localStorage */ }
 
 function storeToken(token: string, expiry: number): void {
   accessToken = token;
   tokenExpiry = expiry;
   try {
     localStorage.setItem(TOKEN_KEY, JSON.stringify({ token, expiry }));
-  } catch {}
+  } catch { /* ignore (private browsing / quota) */ }
 }
 
 export function extractSpreadsheetId(input: string): string {
@@ -86,7 +86,7 @@ export function loadGoogleConfig(): GoogleConfig | null {
   try {
     const raw = localStorage.getItem(CONFIG_KEY);
     if (raw) return JSON.parse(raw) as GoogleConfig;
-  } catch {}
+  } catch { /* ignore malformed/inaccessible localStorage */ }
   return null;
 }
 
@@ -311,6 +311,48 @@ function isMissingSheetError(err: unknown): boolean {
   return err instanceof Error && /unable to parse range/i.test(err.message);
 }
 
+// Upsert a row into `sheetName`, matched by `keyValue` in column A (only when
+// that column's header is `headerMarker` — older spreadsheets without an ID/
+// Дата column always append). Falls back to append when no match is found.
+// Shared by entries/goals/moods, which differ only in row shape and key.
+async function upsertRow(
+  cfg: GoogleConfig,
+  sheetName: string,
+  row: string[],
+  keyValue: string,
+  headerMarker: string
+): Promise<void> {
+  const lastCol = String.fromCharCode(64 + row.length); // 7→'G', 11→'K'
+
+  if (keyValue) {
+    const colA = await sheetsReq<{ values?: string[][] }>(
+      cfg,
+      `/values/${encodeURIComponent(sheetName + '!A:A')}`
+    );
+    const rows = colA.values ?? [];
+    if (rows[0]?.[0] === headerMarker) {
+      const rowIdx = rows.findIndex((r, i) => i > 0 && r[0] === keyValue);
+      if (rowIdx !== -1) {
+        const sheetRow = rowIdx + 1;
+        await sheetsReq(
+          cfg,
+          `/values/${encodeURIComponent(`${sheetName}!A${sheetRow}:${lastCol}${sheetRow}`)}?valueInputOption=USER_ENTERED`,
+          'PUT',
+          { values: [row] }
+        );
+        return;
+      }
+    }
+  }
+
+  await sheetsReq(
+    cfg,
+    `/values/${encodeURIComponent(sheetName + '!A1')}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
+    'POST',
+    { values: [row] }
+  );
+}
+
 // Sync a row to its sheet. If the «Эмоции»/«Дела» tab doesn't exist yet,
 // create it (and headers) on the fly and retry — so no manual "init" step.
 export async function exportEntryToSheet(cfg: GoogleConfig, entry: DiaryEntry): Promise<void> {
@@ -327,45 +369,16 @@ async function writeEntryRow(cfg: GoogleConfig, entry: DiaryEntry): Promise<void
   const sheetName = SHEET_NAMES[entry.sheetType];
   if (!sheetName) throw new Error('Неизвестный тип записи');
 
-  let row: string[];
-  if (entry.sheetType === 'emotions') {
-    row = [entry.entryId || '', entry.time, entry.date, entry.situation, entry.thoughts, entry.emotions, entry.behavior];
-  } else {
-    const statusLabel = entry.status === 'planned' ? 'план' : 'выполнено';
-    row = [entry.entryId || '', entry.time, entry.date, entry.activity, entry.sphere, entry.importance, entry.urgency, entry.difficulty, entry.pleasure, entry.enjoyment, statusLabel];
-  }
+  const row: string[] =
+    entry.sheetType === 'emotions'
+      ? [entry.entryId || '', entry.time, entry.date, entry.situation, entry.thoughts, entry.emotions, entry.behavior]
+      : [
+          entry.entryId || '', entry.time, entry.date, entry.activity, entry.sphere,
+          entry.importance, entry.urgency, entry.difficulty, entry.pleasure, entry.enjoyment,
+          entry.status === 'planned' ? 'план' : 'выполнено',
+        ];
 
-  const lastCol = String.fromCharCode(64 + row.length); // 7→'G', 10→'J'
-
-  // Try to find existing row by entryId (only if entryId is set and sheet has ID column)
-  if (entry.entryId) {
-    const colA = await sheetsReq<{ values?: string[][] }>(
-      cfg,
-      `/values/${encodeURIComponent(sheetName + '!A:A')}`
-    );
-    const rows = colA.values ?? [];
-    if (rows[0]?.[0] === 'ID') {
-      const rowIdx = rows.findIndex((r, i) => i > 0 && r[0] === entry.entryId);
-      if (rowIdx !== -1) {
-        const sheetRow = rowIdx + 1;
-        await sheetsReq(
-          cfg,
-          `/values/${encodeURIComponent(`${sheetName}!A${sheetRow}:${lastCol}${sheetRow}`)}?valueInputOption=USER_ENTERED`,
-          'PUT',
-          { values: [row] }
-        );
-        return;
-      }
-    }
-  }
-
-  // Append new row
-  await sheetsReq(
-    cfg,
-    `/values/${encodeURIComponent(sheetName + '!A1')}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
-    'POST',
-    { values: [row] }
-  );
+  await upsertRow(cfg, sheetName, row, entry.entryId, 'ID');
 }
 
 function ddmmyyyy(d: Date): string {
@@ -398,33 +411,7 @@ async function writeGoalRow(cfg: GoogleConfig, goal: Goal): Promise<void> {
     goal.deferredCount > 0 ? String(goal.deferredCount) : '',
     goal.note || '',
   ];
-  const lastCol = String.fromCharCode(64 + row.length); // 9 → 'I'
-
-  const colA = await sheetsReq<{ values?: string[][] }>(
-    cfg,
-    `/values/${encodeURIComponent(sheetName + '!A:A')}`
-  );
-  const rows = colA.values ?? [];
-  if (rows[0]?.[0] === 'ID') {
-    const rowIdx = rows.findIndex((r, i) => i > 0 && r[0] === goal.goalId);
-    if (rowIdx !== -1) {
-      const sheetRow = rowIdx + 1;
-      await sheetsReq(
-        cfg,
-        `/values/${encodeURIComponent(`${sheetName}!A${sheetRow}:${lastCol}${sheetRow}`)}?valueInputOption=USER_ENTERED`,
-        'PUT',
-        { values: [row] }
-      );
-      return;
-    }
-  }
-
-  await sheetsReq(
-    cfg,
-    `/values/${encodeURIComponent(sheetName + '!A1')}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
-    'POST',
-    { values: [row] }
-  );
+  await upsertRow(cfg, sheetName, row, goal.goalId, 'ID');
 }
 
 // Sync a mood row to the Настроение sheet. Unlike entries/goals there's no ID
@@ -448,31 +435,5 @@ async function writeMoodRow(cfg: GoogleConfig, mood: MoodEntry): Promise<void> {
     mood.med1, mood.dose1, mood.med2, mood.dose2, mood.med3, mood.dose3,
     mood.comment,
   ];
-  const lastCol = String.fromCharCode(64 + row.length); // 11 → 'K'
-
-  const colA = await sheetsReq<{ values?: string[][] }>(
-    cfg,
-    `/values/${encodeURIComponent(sheetName + '!A:A')}`
-  );
-  const rows = colA.values ?? [];
-  if (rows[0]?.[0] === 'Дата') {
-    const rowIdx = rows.findIndex((r, i) => i > 0 && r[0] === mood.date);
-    if (rowIdx !== -1) {
-      const sheetRow = rowIdx + 1;
-      await sheetsReq(
-        cfg,
-        `/values/${encodeURIComponent(`${sheetName}!A${sheetRow}:${lastCol}${sheetRow}`)}?valueInputOption=USER_ENTERED`,
-        'PUT',
-        { values: [row] }
-      );
-      return;
-    }
-  }
-
-  await sheetsReq(
-    cfg,
-    `/values/${encodeURIComponent(sheetName + '!A1')}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
-    'POST',
-    { values: [row] }
-  );
+  await upsertRow(cfg, sheetName, row, mood.date, 'Дата');
 }

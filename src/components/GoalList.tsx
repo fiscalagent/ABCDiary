@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import type { Goal, GoalHorizon } from '../types';
+import { daysLeft } from '../utils/parsing';
 
 interface Props {
   goals: Goal[];
@@ -14,23 +15,6 @@ const HORIZON_TABS: { key: GoalHorizon | 'all'; label: string }[] = [
   { key: 'week', label: '🗓 Неделя' },
   { key: 'day', label: '📌 День' },
 ];
-
-function ddmmyyyyToDate(s: string): Date | null {
-  const m = s.trim().match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
-  if (!m) return null;
-  const d = new Date(+m[3], +m[2] - 1, +m[1]);
-  return isNaN(d.getTime()) ? null : d;
-}
-
-// Days from today to the deadline. Negative = overdue.
-function daysLeft(deadline: string): number | null {
-  const d = ddmmyyyyToDate(deadline);
-  if (!d) return null;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  d.setHours(0, 0, 0, 0);
-  return Math.round((d.getTime() - today.getTime()) / 86_400_000);
-}
 
 function deadlineLabel(deadline: string): { text: string; tone: 'ok' | 'warn' | 'late' } {
   const dl = daysLeft(deadline);

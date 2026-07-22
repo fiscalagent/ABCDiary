@@ -13,6 +13,17 @@ export function dateToDdmmyyyy(d: Date): string {
   return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}`;
 }
 
+// Days from today to a DD.MM.YYYY deadline. Negative = overdue. Shared by
+// GoalList/GoalView, which both render deadline countdowns.
+export function daysLeft(deadline: string): number | null {
+  const d = ddmmyyyyToDate(deadline);
+  if (!d) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  d.setHours(0, 0, 0, 0);
+  return Math.round((d.getTime() - today.getTime()) / 86_400_000);
+}
+
 const WORD_TO_DIGIT: Record<string, string> = {
   'ноль': '0', 'нуль': '0',
   'один': '1', 'одна': '1', 'раз': '1',

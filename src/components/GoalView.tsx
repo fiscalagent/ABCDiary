@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import type { Goal, GoalStatus } from '../types';
+import { daysLeft } from '../utils/parsing';
 
 interface Props {
   goal: Goal;
@@ -14,22 +15,6 @@ interface Props {
   onDeferDeadline: () => void;
   // Spawn a planned "Дело" linked back to this goal.
   onLinkAsTask: () => void;
-}
-
-function ddmmyyyyToDate(s: string): Date | null {
-  const m = s.trim().match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
-  if (!m) return null;
-  const d = new Date(+m[3], +m[2] - 1, +m[1]);
-  return isNaN(d.getTime()) ? null : d;
-}
-
-function daysLeft(deadline: string): number | null {
-  const d = ddmmyyyyToDate(deadline);
-  if (!d) return null;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  d.setHours(0, 0, 0, 0);
-  return Math.round((d.getTime() - today.getTime()) / 86_400_000);
 }
 
 const HORIZON_LABEL = { month: 'Месяц', week: 'Неделя', day: 'День' };

@@ -52,13 +52,11 @@ const HORIZON_OPTIONS: { key: GoalHorizon; label: string; icon: string }[] = [
 export function GoalForm({ initial, mode, existing, parentGoal, onSave, onCancel }: Props) {
   // Subtask horizon is always finer than the parent — UI hides 'month' for
   // week-parents, hides 'month' & 'week' for day-parents (the latter is rare).
-  const allowedHorizons = parentGoal
+  const allowedHorizons: GoalHorizon[] = parentGoal
     ? parentGoal.horizon === 'month'
-      ? (['week', 'day'] as GoalHorizon[])
-      : parentGoal.horizon === 'week'
-        ? (['day'] as GoalHorizon[])
-        : (['day'] as GoalHorizon[])
-    : (['month', 'week', 'day'] as GoalHorizon[]);
+      ? ['week', 'day']
+      : ['day']
+    : ['month', 'week', 'day'];
 
   const [title, setTitle] = useState(initial?.title ?? '');
   const [horizon, setHorizon] = useState<GoalHorizon>(

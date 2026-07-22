@@ -144,14 +144,14 @@ function normalizeDateText(text: string): string {
   }
 
   // DD.MM.YYYY or DD/MM/YYYY
-  let m = t.match(/^(\d{1,2})[.\/](\d{1,2})[.\/](\d{4})$/);
+  let m = t.match(/^(\d{1,2})[./](\d{1,2})[./](\d{4})$/);
   if (m) {
     const d = +m[1], mo = +m[2];
     if (d >= 1 && d <= 31 && mo >= 1 && mo <= 12) return fmt(d, mo, m[3]);
   }
 
   // DD.MM or DD/MM
-  m = t.match(/^(\d{1,2})[.\/](\d{1,2})$/);
+  m = t.match(/^(\d{1,2})[./](\d{1,2})$/);
   if (m) {
     const d = +m[1], mo = +m[2];
     if (d >= 1 && d <= 31 && mo >= 1 && mo <= 12) return fmt(d, mo, currentYear);

@@ -326,19 +326,24 @@ export default function App() {
     setScreen({ name: 'goals' });
   };
 
+  // Rebuild a GoalData patch from a Goal, applying overrides. Centralizes the
+  // shape all goal-mutating actions below need, so a new GoalData field only
+  // has to be threaded through here once instead of at every call site.
+  const goalPatch = (goal: Goal, overrides: Partial<GoalData>): GoalData => ({
+    goalId: goal.goalId,
+    ...(goal.parentGoalId ? { parentGoalId: goal.parentGoalId } : {}),
+    title: goal.title,
+    horizon: goal.horizon,
+    deadline: goal.deadline,
+    status: goal.status,
+    ...(goal.note ? { note: goal.note } : {}),
+    deferredCount: goal.deferredCount,
+    ...(goal.linkedEntryIds ? { linkedEntryIds: goal.linkedEntryIds } : {}),
+    ...overrides,
+  });
+
   const handleSetGoalStatus = async (goal: Goal, status: GoalStatus) => {
-    const data: GoalData = {
-      goalId: goal.goalId,
-      ...(goal.parentGoalId ? { parentGoalId: goal.parentGoalId } : {}),
-      title: goal.title,
-      horizon: goal.horizon,
-      deadline: goal.deadline,
-      status,
-      ...(goal.note ? { note: goal.note } : {}),
-      deferredCount: goal.deferredCount,
-      ...(goal.linkedEntryIds ? { linkedEntryIds: goal.linkedEntryIds } : {}),
-    };
-    await persistGoal(data, goal.id);
+    await persistGoal(goalPatch(goal, { status }), goal.id);
   };
 
   // "Soft" deferral: push the deadline forward by one horizon-step and bump
@@ -352,18 +357,10 @@ export default function App() {
     else d.setMonth(d.getMonth() + 1);
     const newDeadline =
       `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}`;
-    const data: GoalData = {
-      goalId: goal.goalId,
-      ...(goal.parentGoalId ? { parentGoalId: goal.parentGoalId } : {}),
-      title: goal.title,
-      horizon: goal.horizon,
-      deadline: newDeadline,
-      status: goal.status,
-      ...(goal.note ? { note: goal.note } : {}),
-      deferredCount: goal.deferredCount + 1,
-      ...(goal.linkedEntryIds ? { linkedEntryIds: goal.linkedEntryIds } : {}),
-    };
-    await persistGoal(data, goal.id);
+    await persistGoal(
+      goalPatch(goal, { deadline: newDeadline, deferredCount: goal.deferredCount + 1 }),
+      goal.id
+    );
   };
 
   // Spawn a planned "Дело" pre-filled from the goal. The new task is saved
@@ -392,18 +389,7 @@ export default function App() {
     await handleSave(task);
     // Record the link on the goal side so we can show "linked to N дел" later.
     const linked = [...(goal.linkedEntryIds || []), entryId];
-    const data: GoalData = {
-      goalId: goal.goalId,
-      ...(goal.parentGoalId ? { parentGoalId: goal.parentGoalId } : {}),
-      title: goal.title,
-      horizon: goal.horizon,
-      deadline: goal.deadline,
-      status: goal.status,
-      ...(goal.note ? { note: goal.note } : {}),
-      deferredCount: goal.deferredCount,
-      linkedEntryIds: linked,
-    };
-    await persistGoal(data, goal.id);
+    await persistGoal(goalPatch(goal, { linkedEntryIds: linked }), goal.id);
     setSyncToast('✅ Дело добавлено в план на сегодня');
     setTimeout(() => setSyncToast(''), 3000);
   };
