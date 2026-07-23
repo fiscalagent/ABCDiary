@@ -276,7 +276,7 @@ const HEADERS: Record<string, string[]> = {
   // existing column layout — the new column lands in J with an empty header.
   Дела: ['ID', 'Время', 'Дата', 'Занятие', 'Сфера', 'Важность (0-10)', 'Срочность (0-10)', 'Сложность (0-10)', 'Удовлетворение (0-10)', 'Удовольствие (0-10)', 'Статус'],
   Цели: ['ID', 'Родитель', 'Название', 'Горизонт', 'Дедлайн', 'Статус', 'Создана', 'Перенесена (раз)', 'Заметка'],
-  Настроение: ['Дата', 'Утро', 'День', 'Вечер', 'Лекарство 1', 'Доза 1', 'Лекарство 2', 'Доза 2', 'Лекарство 3', 'Доза 3', 'Комментарий'],
+  Настроение: ['Дата', 'Утро', 'Комментарий (утро)', 'День', 'Комментарий (день)', 'Вечер', 'Комментарий (вечер)', 'Лекарство 1', 'Доза 1', 'Лекарство 2', 'Доза 2', 'Лекарство 3', 'Доза 3'],
 };
 
 export async function initSpreadsheet(cfg: GoogleConfig): Promise<void> {
@@ -466,9 +466,11 @@ export async function exportMoodToSheet(cfg: GoogleConfig, mood: MoodEntry): Pro
 async function writeMoodRow(cfg: GoogleConfig, mood: MoodEntry): Promise<void> {
   const sheetName = SHEET_NAMES.moods;
   const row: string[] = [
-    mood.date, mood.morning, mood.day, mood.evening,
+    mood.date,
+    mood.morning, mood.commentMorning,
+    mood.day, mood.commentDay,
+    mood.evening, mood.commentEvening,
     mood.med1, mood.dose1, mood.med2, mood.dose2, mood.med3, mood.dose3,
-    mood.comment,
   ];
   await upsertRow(cfg, sheetName, row, mood.date, 'Дата');
 }

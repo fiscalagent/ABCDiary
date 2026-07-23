@@ -71,7 +71,9 @@ export interface MoodData {
   dose2: string;
   med3: string;
   dose3: string;
-  comment: string;
+  commentMorning: string;
+  commentDay: string;
+  commentEvening: string;
 }
 
 export type MoodEntry = MoodData & { id: number; createdAt: Date; updatedAt: Date };
