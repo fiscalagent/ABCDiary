@@ -26,6 +26,13 @@ export default defineConfig({
     versionJsonPlugin(),
     VitePWA({
       registerType: 'autoUpdate',
+      workbox: {
+        // Static pages served alongside the app (e.g. the public user guide)
+        // must NOT fall back to index.html — otherwise the service worker's
+        // SPA catch-all boots the React app (and its PIN lock) instead of
+        // serving the actual page, making it look password-protected.
+        navigateFallbackDenylist: [/\/guide\.html$/],
+      },
       manifest: {
         name: 'ABCDiary',
         short_name: 'ABCDiary',
