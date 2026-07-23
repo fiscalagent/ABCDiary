@@ -6,6 +6,10 @@ export interface RawEntry {
   updatedAt: number;
   iv: string;
   ciphertext: string;
+  // True when this row was saved but never confirmed synced to Google Sheets
+  // (e.g. saved while offline). Not encrypted — read without decrypting so a
+  // reconnect can find and retry everything pending in one pass.
+  pendingSync?: boolean;
 }
 
 export interface Settings {
@@ -23,6 +27,7 @@ export interface RawGoal {
   updatedAt: number;
   iv: string;
   ciphertext: string;
+  pendingSync?: boolean;
 }
 
 // Mood/medication records are stored the same encrypted-blob way as goals,
@@ -33,6 +38,7 @@ export interface RawMood {
   updatedAt: number;
   iv: string;
   ciphertext: string;
+  pendingSync?: boolean;
 }
 
 class ABCDiaryDB extends Dexie {

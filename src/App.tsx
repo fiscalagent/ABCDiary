@@ -57,6 +57,7 @@ export default function App() {
   const [googleConfig, setGoogleConfig] = useState<GoogleConfig | null>(null);
   const [settingsMsg, setSettingsMsg] = useState('');
   const [syncToast, setSyncToast] = useState('');
+  const [pendingSyncCount, setPendingSyncCount] = useState(0);
   const { updateAvailable, applyUpdate } = useAppUpdate();
 
   useEffect(() => {
@@ -163,14 +164,96 @@ export default function App() {
     setMoods(decrypted);
   }, []);
 
+  // Count of locally-saved rows not yet confirmed synced (see pendingSync
+  // below). Drives the "N не синхронизировано" indicator in Settings.
+  const refreshPendingSyncCount = useCallback(async (): Promise<number> => {
+    const [e, g, m] = await Promise.all([db.entries.toArray(), db.goals.toArray(), db.moods.toArray()]);
+    const count =
+      e.filter(r => r.pendingSync).length +
+      g.filter(r => r.pendingSync).length +
+      m.filter(r => r.pendingSync).length;
+    setPendingSyncCount(count);
+    return count;
+  }, []);
+
   const handleUnlock = useCallback(
     async (key: CryptoKey) => {
       setCryptoKey(key);
       await Promise.all([loadEntries(key), loadGoals(key), loadMoods(key)]);
+      refreshPendingSyncCount();
       setScreen({ name: 'list' });
     },
-    [loadEntries, loadGoals, loadMoods]
+    [loadEntries, loadGoals, loadMoods, refreshPendingSyncCount]
   );
+
+  // Re-attempt any save whose sheet sync never confirmed (marked pendingSync
+  // when the save was made — most commonly because the device was offline at
+  // the time). Runs on unlock, whenever connectivity/focus returns, and on
+  // demand from the Settings "Синхронизировать сейчас" button — since without
+  // this a task marked "done" while offline would show as done locally
+  // forever while the sheet silently kept the old status.
+  const retryPendingSync = useCallback(async (): Promise<number> => {
+    if (!cryptoKey || !googleConfig) return pendingSyncCount;
+    const key = cryptoKey;
+    const cfg = googleConfig;
+    let synced = 0;
+
+    const pendingEntries = (await db.entries.toArray()).filter(r => r.pendingSync);
+    for (const r of pendingEntries) {
+      try {
+        const data = await decryptData(r.iv, r.ciphertext, key) as EntryData;
+        const full = {
+          ...data, id: r.id!, createdAt: new Date(r.createdAt), updatedAt: new Date(r.updatedAt),
+        } as DiaryEntry;
+        await exportEntryToSheet(cfg, full);
+        await db.entries.update(r.id!, { pendingSync: false });
+        synced++;
+      } catch { /* still unreachable — leave pending, try again next time */ }
+    }
+
+    const pendingGoals = (await db.goals.toArray()).filter(r => r.pendingSync);
+    for (const r of pendingGoals) {
+      try {
+        const data = await decryptData(r.iv, r.ciphertext, key) as GoalData;
+        const goal: Goal = {
+          ...data, id: r.id!, createdAt: new Date(r.createdAt), updatedAt: new Date(r.updatedAt),
+        };
+        await exportGoalToSheet(cfg, goal);
+        await db.goals.update(r.id!, { pendingSync: false });
+        synced++;
+      } catch { /* leave pending */ }
+    }
+
+    const pendingMoods = (await db.moods.toArray()).filter(r => r.pendingSync);
+    for (const r of pendingMoods) {
+      try {
+        const data = await decryptData(r.iv, r.ciphertext, key) as MoodData;
+        const mood: MoodEntry = {
+          ...data, id: r.id!, createdAt: new Date(r.createdAt), updatedAt: new Date(r.updatedAt),
+        };
+        await exportMoodToSheet(cfg, mood);
+        await db.moods.update(r.id!, { pendingSync: false });
+        synced++;
+      } catch { /* leave pending */ }
+    }
+
+    if (synced > 0) {
+      setSyncToast(`✅ Досинхронизировано отложенных записей: ${synced}`);
+      setTimeout(() => setSyncToast(''), 4000);
+    }
+    return refreshPendingSyncCount();
+  }, [cryptoKey, googleConfig, pendingSyncCount, refreshPendingSyncCount]);
+
+  useEffect(() => {
+    if (!cryptoKey || !googleConfig) return;
+    retryPendingSync();
+    window.addEventListener('online', retryPendingSync);
+    window.addEventListener('focus', retryPendingSync);
+    return () => {
+      window.removeEventListener('online', retryPendingSync);
+      window.removeEventListener('focus', retryPendingSync);
+    };
+  }, [cryptoKey, googleConfig, retryPendingSync]);
 
   const handleSave = async (data: EntryData, editId?: number) => {
     if (!cryptoKey) return;
@@ -199,8 +282,15 @@ export default function App() {
         createdAt: existingEntry?.createdAt ?? new Date(now),
         updatedAt: new Date(now),
       } as DiaryEntry;
+      // Marked pending up front so a failed attempt (e.g. offline) leaves a
+      // durable trail — otherwise a save made without connectivity would
+      // never reach the sheet, since nothing else would ever retry it.
+      await db.entries.update(dbId, { pendingSync: true });
+      refreshPendingSyncCount();
       exportEntryToSheet(googleConfig, fullEntry)
         .then(() => {
+          db.entries.update(dbId, { pendingSync: false });
+          refreshPendingSyncCount();
           setSyncToast('✅ Синхронизировано с таблицей');
           setTimeout(() => setSyncToast(''), 3000);
         })
@@ -240,8 +330,12 @@ export default function App() {
       const mood: MoodEntry = { ...data, id: dbId, createdAt: new Date(createdAt), updatedAt: new Date(now) };
       await loadMoods(cryptoKey);
       if (googleConfig) {
+        await db.moods.update(dbId, { pendingSync: true });
+        refreshPendingSyncCount();
         exportMoodToSheet(googleConfig, mood)
           .then(() => {
+            db.moods.update(dbId, { pendingSync: false });
+            refreshPendingSyncCount();
             setSyncToast('✅ Настроение синхронизировано');
             setTimeout(() => setSyncToast(''), 3000);
           })
@@ -252,7 +346,7 @@ export default function App() {
       }
       return mood;
     },
-    [cryptoKey, moods, googleConfig, loadMoods]
+    [cryptoKey, moods, googleConfig, loadMoods, refreshPendingSyncCount]
   );
 
   const handleSaveMood = async (data: MoodData, returnTo: Screen) => {
@@ -286,8 +380,12 @@ export default function App() {
       };
       await loadGoals(cryptoKey);
       if (googleConfig) {
+        await db.goals.update(dbId, { pendingSync: true });
+        refreshPendingSyncCount();
         exportGoalToSheet(googleConfig, goal)
           .then(() => {
+            db.goals.update(dbId, { pendingSync: false });
+            refreshPendingSyncCount();
             setSyncToast('✅ Цель синхронизирована');
             setTimeout(() => setSyncToast(''), 3000);
           })
@@ -298,7 +396,7 @@ export default function App() {
       }
       return goal;
     },
-    [cryptoKey, goals, googleConfig, loadGoals]
+    [cryptoKey, goals, googleConfig, loadGoals, refreshPendingSyncCount]
   );
 
   const handleSaveGoal = async (data: GoalData, editDbId?: number) => {
@@ -471,8 +569,10 @@ export default function App() {
         <GoogleSettingsScreen
           config={googleConfig}
           msg={settingsMsg}
+          pendingSyncCount={pendingSyncCount}
           onSave={handleSaveGoogleConfig}
           onRevoke={handleRevokeGoogle}
+          onSyncNow={retryPendingSync}
           onBack={() => setScreen({ name: 'list' })}
         />
       </>
@@ -715,18 +815,30 @@ function AboutSection() {
 interface GSProps {
   config: GoogleConfig | null;
   msg: string;
+  pendingSyncCount: number;
   onSave: (spreadsheetId: string, accountEmail: string) => void;
   onRevoke: () => void;
+  onSyncNow: () => Promise<number>;
   onBack: () => void;
 }
 
-function GoogleSettingsScreen({ config, msg, onSave, onRevoke, onBack }: GSProps) {
+function GoogleSettingsScreen({ config, msg, pendingSyncCount, onSave, onRevoke, onSyncNow, onBack }: GSProps) {
   const [spreadsheetId, setSpreadsheetId] = useState(config?.spreadsheetId ?? '');
   const [accountEmail, setAccountEmail] = useState(config?.accountEmail ?? '');
   const [showHelp, setShowHelp] = useState(false);
   const [gsExpanded, setGsExpanded] = useState(false);
   // Configured tables show a compact summary; the form appears only on "edit".
   const [editing, setEditing] = useState(!config?.spreadsheetId);
+  const [syncing, setSyncing] = useState(false);
+
+  const handleSyncNow = async () => {
+    setSyncing(true);
+    try {
+      await onSyncNow();
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   const connected = isSignedIn();
   const account = getActiveAccount();
@@ -796,8 +908,16 @@ function GoogleSettingsScreen({ config, msg, onSave, onRevoke, onBack }: GSProps
                   </span>
                   {account && <span className="gs-status-sub">{account}</span>}
                   {tableTail && <span className="gs-status-sub">Таблица: …{tableTail}</span>}
+                  {pendingSyncCount > 0 && (
+                    <span className="gs-status-sub">⏳ Не синхронизировано: {pendingSyncCount}</span>
+                  )}
                 </div>
               </div>
+              <button className="settings-btn secondary" onClick={handleSyncNow} disabled={syncing}>
+                {syncing
+                  ? '🔄 Синхронизация…'
+                  : `🔄 Синхронизировать сейчас${pendingSyncCount > 0 ? ` (${pendingSyncCount})` : ''}`}
+              </button>
               <button className="settings-btn secondary" onClick={() => setEditing(true)}>
                 ⚙️ Изменить настройки
               </button>
