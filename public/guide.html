@@ -1,0 +1,617 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#4a7fa5" />
+<link rel="icon" type="image/png" href="icon-192.png" />
+<title>ABCDiary — руководство пользователя</title>
+<style>
+  :root {
+    --primary:      #4a7fa5;
+    --primary-tint: rgba(74, 127, 165, 0.09);
+    --primary-ring: rgba(74, 127, 165, 0.25);
+    --bg:           #f0f4f8;
+    --surface:      #ffffff;
+    --border:       #dde3ea;
+    --text:         #1e2530;
+    --text-secondary:#5a6070;
+    --warn:         #b8631a;
+    --warn-tint:    rgba(230, 126, 34, 0.10);
+    --warn-border:  rgba(230, 126, 34, 0.35);
+    --radius:       14px;
+    --radius-sm:    8px;
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --primary:      #5b9fc4;
+      --primary-tint: rgba(91, 159, 196, 0.14);
+      --primary-ring: rgba(91, 159, 196, 0.30);
+      --bg:           #111418;
+      --surface:      #1a1f28;
+      --border:       #2a3040;
+      --text:         #e2e8f0;
+      --text-secondary:#8896aa;
+      --warn:         #e8975a;
+      --warn-tint:    rgba(230, 149, 90, 0.12);
+      --warn-border:  rgba(230, 149, 90, 0.30);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.65;
+    font-size: 16px;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  main {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 0 20px 64px;
+  }
+
+  /* ── Hero ─────────────────────────────────────────────── */
+  .hero {
+    padding: 40px 20px 28px;
+    text-align: center;
+    background: linear-gradient(180deg, var(--primary-tint), transparent);
+  }
+  .hero-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 18px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  }
+  .hero h1 {
+    margin: 16px 0 4px;
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.2px;
+  }
+  .hero p {
+    margin: 0 auto;
+    max-width: 46ch;
+    color: var(--text-secondary);
+    font-size: 15px;
+  }
+  .hero-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 20px;
+  }
+  .btn {
+    display: inline-block;
+    padding: 11px 20px;
+    border-radius: 999px;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+    border: 1px solid var(--border);
+    color: var(--text);
+    background: var(--surface);
+  }
+  .btn.primary {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #fff;
+  }
+
+  /* ── TOC ──────────────────────────────────────────────── */
+  .toc {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+    margin: 28px 0;
+  }
+  .toc h2 {
+    margin: 0 0 10px;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-secondary);
+    font-weight: 700;
+  }
+  .toc ol {
+    margin: 0;
+    padding-left: 1.3em;
+  }
+  .toc li { margin: 7px 0; }
+  .toc a {
+    color: var(--text);
+    text-decoration: none;
+    font-weight: 500;
+  }
+  .toc a:hover { color: var(--primary); }
+
+  /* ── Sections ─────────────────────────────────────────── */
+  section {
+    margin: 40px 0;
+    scroll-margin-top: 16px;
+  }
+  section h2 {
+    font-size: 21px;
+    font-weight: 700;
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin: 0 0 6px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--border);
+  }
+  section h2 .num {
+    color: var(--primary);
+    font-variant-numeric: tabular-nums;
+  }
+  h3 {
+    font-size: 16px;
+    font-weight: 700;
+    margin: 22px 0 8px;
+  }
+  h3 .emoji { margin-right: 4px; }
+  p { margin: 10px 0; }
+  ul, ol { margin: 8px 0; padding-left: 1.4em; }
+  li { margin: 6px 0; }
+  a { color: var(--primary); }
+  strong { font-weight: 700; }
+  code {
+    font-family: var(--font-mono);
+    font-size: 0.88em;
+    background: var(--primary-tint);
+    padding: 0.15em 0.4em;
+    border-radius: 5px;
+  }
+
+  .back-to-top {
+    display: inline-block;
+    margin-top: 18px;
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    color: var(--text-secondary);
+  }
+
+  /* ── Callouts ─────────────────────────────────────────── */
+  .note, .warn {
+    border-radius: var(--radius-sm);
+    padding: 14px 16px;
+    margin: 16px 0;
+    font-size: 14.5px;
+    line-height: 1.6;
+  }
+  .note {
+    background: var(--primary-tint);
+    border: 1px solid var(--primary-ring);
+  }
+  .warn {
+    background: var(--warn-tint);
+    border: 1px solid var(--warn-border);
+    color: var(--warn);
+  }
+  .note strong, .warn strong { color: inherit; }
+  .note::before, .warn::before {
+    content: 'ℹ️  ';
+  }
+  .warn::before {
+    content: '⚠️  ';
+  }
+
+  /* ── Sheet cards (§4) ─────────────────────────────────── */
+  .sheet-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+    margin: 14px 0;
+  }
+  .sheet-card h4 {
+    margin: 0 0 10px;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--primary);
+  }
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .chip {
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    background: var(--primary-tint);
+    padding: 4px 9px;
+    border-radius: 6px;
+    white-space: nowrap;
+  }
+
+  /* ── Step cards (§3) ──────────────────────────────────── */
+  .step {
+    display: flex;
+    gap: 14px;
+    margin: 18px 0;
+  }
+  .step-num {
+    flex: none;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: #fff;
+    font-weight: 700;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .step-body { flex: 1; min-width: 0; }
+  .step-body h3 { margin: 3px 0 6px; }
+
+  /* ── FAQ ──────────────────────────────────────────────── */
+  details {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 4px 16px;
+    margin: 10px 0;
+  }
+  summary {
+    padding: 12px 0;
+    font-weight: 600;
+    cursor: pointer;
+    list-style: none;
+  }
+  summary::-webkit-details-marker { display: none; }
+  summary::before {
+    content: '▸';
+    display: inline-block;
+    margin-right: 8px;
+    color: var(--primary);
+    transition: transform 0.15s ease;
+  }
+  details[open] summary::before { transform: rotate(90deg); }
+  details p:first-of-type { margin-top: 0; }
+  details p:last-of-type { padding-bottom: 12px; }
+
+  footer {
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 13px;
+    padding: 32px 20px 0;
+  }
+  footer a { color: var(--text-secondary); }
+
+  @media print {
+    .hero-actions, .toc a[href$="guide.html"] { display: none; }
+    body { background: #fff; color: #000; }
+  }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <img class="hero-icon" src="icon-192.png" alt="" />
+  <h1>ABCDiary</h1>
+  <p>Голосовой дневник для КПТ-практики с шифрованием и синхронизацией в Google Таблицы. Это руководство — как всё устроено, как подключить таблицу и как пользоваться приложением.</p>
+  <div class="hero-actions">
+    <a class="btn primary" href="./">Открыть приложение</a>
+    <a class="btn" href="https://github.com/fiscalagent/ABCDiary">Репозиторий на GitHub</a>
+  </div>
+</div>
+
+<main>
+
+  <nav class="toc" id="toc">
+    <h2>Оглавление</h2>
+    <ol>
+      <li><a href="#section-1">Как это устроено</a></li>
+      <li><a href="#section-2">Первый запуск и установка на телефон</a></li>
+      <li><a href="#section-3">Подключение Google Таблицы</a></li>
+      <li><a href="#section-4">Структура таблицы</a></li>
+      <li><a href="#section-5">Разделы приложения</a></li>
+      <li><a href="#section-6">Офлайн-режим и синхронизация</a></li>
+      <li><a href="#section-7">Для терапевта</a></li>
+      <li><a href="#section-8">Безопасность и приватность</a></li>
+      <li><a href="#section-9">Частые проблемы</a></li>
+    </ol>
+  </nav>
+
+  <section id="section-1">
+    <h2><span class="num">1.</span> Как это устроено</h2>
+    <p>ABCDiary — это PWA (Progressive Web App): сайт, который ставится на телефон и ведёт себя как обычное приложение, без магазина приложений. Бэкенда у него нет. Всё происходит между тремя вещами:</p>
+    <ul>
+      <li><strong>Браузер</strong> — интерфейс, распознавание речи, работа офлайн.</li>
+      <li><strong>IndexedDB на устройстве</strong> — локальное хранилище записей, зашифрованное AES-256 по PIN-коду. Без PIN-кода записи на устройстве не читаются никем, включая разработчика.</li>
+      <li><strong>Google Sheets</strong> — таблица пациента, куда каждая сохранённая запись синхронизируется отдельной строкой. Терапевт получает доступ к этой таблице обычным «Поделиться» в Google — как к любому другому Google-документу.</li>
+    </ul>
+    <p>Так пациент ведёт дневник голосом на телефоне, а терапевт видит его в привычной таблице — фильтрует, сортирует, строит графики.</p>
+    <a class="back-to-top" href="#toc">↑ К оглавлению</a>
+  </section>
+
+  <section id="section-2">
+    <h2><span class="num">2.</span> Первый запуск и установка на телефон</h2>
+    <ol>
+      <li>Откройте приложение в браузере на телефоне (рекомендуется Chrome — на нём лучше всего работает голосовой ввод).</li>
+      <li>Придумайте PIN-код. Он не отправляется никуда — из него на устройстве выводится ключ шифрования локальной базы.</li>
+    </ol>
+    <div class="warn">
+      <strong>Восстановить PIN нельзя</strong> — в приложении нет функции сброса. Если забудете код, локальные записи на этом устройстве станут недоступны, и единственный выход — очистить данные сайта в браузере и начать заново (это удалит локальную базу телефона). Всё, что уже синхронизировалось в Google Таблицу, никуда не денется — восстановится доступ к нему через саму таблицу. Поэтому подключение Google Таблицы (шаг 3) стоит настроить сразу же после первого запуска.
+    </div>
+    <ol start="3">
+      <li>Добавьте приложение на экран «Домой»:
+        <ul>
+          <li><strong>iPhone (Safari):</strong> кнопка «Поделиться» → «На экран "Домой"».</li>
+          <li><strong>Android (Chrome):</strong> меню (⋮) → «Установить приложение», либо баннер с таким же предложением снизу экрана.</li>
+        </ul>
+      </li>
+      <li>После установки открывайте дневник как обычное приложение — с иконки на рабочем столе. Ввод текста и просмотр записей работают полностью офлайн; голосовому вводу и синхронизации нужен интернет в момент использования.</li>
+    </ol>
+    <a class="back-to-top" href="#toc">↑ К оглавлению</a>
+  </section>
+
+  <section id="section-3">
+    <h2><span class="num">3.</span> Подключение Google Таблицы</h2>
+    <p>Всё, что нужно пациенту сделать один раз, чтобы записи начали приходить терапевту.</p>
+
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <h3>Создать таблицу</h3>
+        <ol>
+          <li>Откройте <a href="https://sheets.google.com">sheets.google.com</a> → «Пустой файл».</li>
+          <li>Назовите её как угодно, например «Дневник — Имя».</li>
+          <li>Ничего внутри создавать не нужно — ни листов, ни заголовков колонок: приложение создаст их само при первой сохранённой записи (см. <a href="#section-4">раздел 4</a>).</li>
+          <li>Скопируйте ссылку на таблицу из адресной строки браузера (или «Файл» → «Поделиться» → «Копировать ссылку»). Она выглядит так: <code>https://docs.google.com/spreadsheets/d/ДЛИННЫЙ_ID/edit...</code> — вставлять можно ссылку целиком, приложение само вытащит из неё ID.</li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <h3>Открыть доступ терапевту</h3>
+        <p>Можно сделать сразу или позже, когда таблица уже наполнится записями:</p>
+        <ol>
+          <li>В таблице — «Поделиться» (кнопка в правом верхнем углу).</li>
+          <li>Введите email терапевта, роль — «Читатель» (этого достаточно; «Комментатор» — если терапевт должен оставлять заметки в таблице).</li>
+          <li>«Отправить». Терапевту придёт письмо-приглашение, а таблица появится у него в Google Drive, в разделе «Доступные мне», после того как он примет приглашение.</li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <h3>Подключить таблицу в приложении</h3>
+        <ol>
+          <li>На главном экране дневника нажмите ⚙️ (Настройки).</li>
+          <li>Разверните блок «📊 Google Таблица».</li>
+          <li>В поле «Ссылка на таблицу» вставьте скопированную ссылку.</li>
+          <li>Необязательно, но удобно: в поле «Google-аккаунт (email)» укажите Gmail, от которого всегда идёт синхронизация — тогда при повторных входах Google не будет каждый раз спрашивать, какой аккаунт использовать.</li>
+          <li>Нажмите «💾 Сохранить и войти в Google» — откроется всплывающее окно входа Google.</li>
+        </ol>
+        <div class="note">
+          <strong>Экран «Google не подтвердил это приложение» — это нормально.</strong> Приложение личное, а не публичный продукт с верификацией Google, поэтому такое предупреждение ожидаемо при первом входе. Чтобы продолжить: нажмите «Дополнительные настройки» («Advanced») внизу экрана, затем «Перейти на ABCDiary (небезопасно)» — и разрешите доступ к Google Таблицам (запрашивается право видеть, создавать и редактировать ваши таблицы). Это не даёт приложению доступ ни к чему, кроме Google Таблиц конкретного аккаунта.
+        </div>
+        <div class="note">
+          <strong>Если браузер заблокировал всплывающее окно</strong> — разрешите всплывающие окна для сайта и нажмите «Сохранить и войти в Google» ещё раз. Окно входа должно открываться сразу по нажатию кнопки — если между нажатием и открытием прошло время (например, медленный интернет), попробуйте ещё раз.
+        </div>
+        <p>После успешного входа появится сообщение «✅ Сохранено, вход выполнен», а статус в Настройках сменится на «Подключено».</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-body">
+        <h3>Проверка</h3>
+        <p>Сохраните любую тестовую запись (например, «Эмоции») и откройте таблицу в браузере — должен появиться лист «Эмоции» с этой строкой. Если строки нет сразу — см. <a href="#section-6">раздел 6</a> про очередь синхронизации.</p>
+      </div>
+    </div>
+
+    <h3>Если нужно сменить таблицу или аккаунт</h3>
+    <ul>
+      <li>⚙️ → «Изменить настройки» — можно вставить другую ссылку или email.</li>
+      <li>🚪 в шапке Настроек — выход из Google-аккаунта (локальные записи и PIN не затрагиваются, только сбрасывается вход для синхронизации).</li>
+    </ul>
+    <a class="back-to-top" href="#toc">↑ К оглавлению</a>
+  </section>
+
+  <section id="section-4">
+    <h2><span class="num">4.</span> Структура таблицы</h2>
+    <p>Приложение само создаёт до четырёх листов — по одному на каждый тип записи, который вы хотя бы раз сохранили — и подписывает заголовки колонок:</p>
+
+    <div class="sheet-card">
+      <h4>💭 Эмоции</h4>
+      <div class="chips">
+        <span class="chip">ID</span><span class="chip">Время</span><span class="chip">Дата</span>
+        <span class="chip">Триггерная ситуация</span><span class="chip">Мысли</span>
+        <span class="chip">Эмоции</span><span class="chip">Поведение</span>
+      </div>
+    </div>
+
+    <div class="sheet-card">
+      <h4>🗓 Дела</h4>
+      <div class="chips">
+        <span class="chip">ID</span><span class="chip">Время</span><span class="chip">Дата</span>
+        <span class="chip">Занятие</span><span class="chip">Сфера</span>
+        <span class="chip">Важность (0-10)</span><span class="chip">Срочность (0-10)</span>
+        <span class="chip">Сложность (0-10)</span><span class="chip">Удовлетворение (0-10)</span>
+        <span class="chip">Удовольствие (0-10)</span><span class="chip">Статус</span>
+      </div>
+    </div>
+
+    <div class="sheet-card">
+      <h4>🎯 Цели</h4>
+      <div class="chips">
+        <span class="chip">ID</span><span class="chip">Родитель</span><span class="chip">Название</span>
+        <span class="chip">Горизонт</span><span class="chip">Дедлайн</span><span class="chip">Статус</span>
+        <span class="chip">Создана</span><span class="chip">Перенесена (раз)</span><span class="chip">Заметка</span>
+      </div>
+    </div>
+
+    <div class="sheet-card">
+      <h4>😊 Настроение</h4>
+      <div class="chips">
+        <span class="chip">Дата</span><span class="chip">Утро</span><span class="chip">Комментарий (утро)</span>
+        <span class="chip">День</span><span class="chip">Комментарий (день)</span>
+        <span class="chip">Вечер</span><span class="chip">Комментарий (вечер)</span>
+        <span class="chip">Лекарство 1</span><span class="chip">Доза 1</span>
+        <span class="chip">Лекарство 2</span><span class="chip">Доза 2</span>
+        <span class="chip">Лекарство 3</span><span class="chip">Доза 3</span>
+      </div>
+    </div>
+
+    <p>Каждое сохранение обновляет свою же строку, а не добавляет новую: у «Эмоций», «Дел» и «Целей» ключ — колонка <code>ID</code>, у «Настроения» — колонка <code>Дата</code> (одна строка на календарный день). Так что можно смело возвращаться к записи и дополнять её — дубликатов не будет.</p>
+    <p>Лист «Дела» из старых версий приложения (до середины 2026) мог быть создан без колонки «Статус» — она в этом случае просто допишется в конец строки без заголовка при следующем сохранении; можно подписать заголовок вручную, работать это не мешает.</p>
+    <a class="back-to-top" href="#toc">↑ К оглавлению</a>
+  </section>
+
+  <section id="section-5">
+    <h2><span class="num">5.</span> Разделы приложения</h2>
+    <p>Голосовой ввод работает почти на каждом поле: нажмите значок 🎙 рядом с полем, скажите текст, он появится в поле — можно продолжить диктовать или подправить руками. Кнопка 🎙 показывается только там, где браузер поддерживает распознавание речи (лучше всего — Chrome на Android); если её нет, вводите текст как обычно. Голосовому вводу нужен интернет в момент, когда вы говорите — сама запись при этом всё равно сохранится, даже если связь пропадёт сразу после.</p>
+
+    <h3><span class="emoji">💭</span>Эмоции — разбор ситуации по ABC-схеме</h3>
+    <p>Одна запись — один проход по четырём полям.</p>
+    <ol>
+      <li>Главный экран → <strong>+</strong> → «Эмоции».</li>
+      <li>По очереди: <strong>ситуация</strong> (что произошло, триггер) → <strong>мысли</strong> → <strong>эмоции</strong> → <strong>поведение</strong> (что вы сделали).</li>
+      <li>«Сохранить» — запись уходит в таблицу и остаётся на устройстве.</li>
+    </ol>
+
+    <h3><span class="emoji">🗓</span>Дела — план утром, оценка по ходу дня</h3>
+    <p>Записи о делах вводятся в два захода.</p>
+    <p><strong>Утром — планирование.</strong></p>
+    <ol>
+      <li><strong>+</strong> → «Дело (план)».</li>
+      <li>Поля: занятие · сфера жизни · время (когда планируете) · важность 0–10 · срочность 0–10.</li>
+      <li>«Сохранить» — дело появляется вверху главного экрана в секции <strong>«🗓 План на сегодня»</strong>, отсортированное по времени.</li>
+    </ol>
+    <p><strong>В течение дня — оценка.</strong></p>
+    <ol>
+      <li>Тапните по карточке дела в «Плане на сегодня».</li>
+      <li>Оцените: сложность · удовольствие во время · удовлетворение после (0–10 каждое). Время и важность здесь же можно поправить, если по факту вышло иначе.</li>
+      <li>Две кнопки на выбор:
+        <ul>
+          <li><strong>💾 Сохранить (пока в плане)</strong> — сохраняет то, что успели оценить, дело остаётся в плане, к нему можно вернуться позже.</li>
+          <li><strong>✅ Готово</strong> — то же самое плюс дело переходит в статус «выполнено» и уходит из «Плана на сегодня» в обычную ленту записей.</li>
+        </ul>
+      </li>
+    </ol>
+    <p>Оба сценария сразу синхронизируются с таблицей.</p>
+
+    <h3><span class="emoji">😊</span>Настроение — самочувствие и лекарства</h3>
+    <p>Иконка 😊 в шапке главного экрана открывает календарь настроения; <strong>+</strong> → «Настроение» открывает форму записи. Одна запись на календарный день:</p>
+    <ul>
+      <li>Оценки <strong>утро / день / вечер</strong> по шкале 0–10 (0 — тяжело/депрессия, 5 — нейтрально, 10 — эйфория), у каждой — свой отдельный комментарий (самочувствие, побочные эффекты и т.п.).</li>
+      <li>До трёх лекарств с дозировкой; второе и третье скрыты под кнопкой «Ещё лекарства», чтобы не занимать место, если их нет. Названия и дозы лекарств подставляются автоматически с последней предыдущей записи — если ничего не поменялось, просто оставьте как есть.</li>
+      <li>Календарь настроения показывает цветные точки по дням отдельно для утра/дня/вечера — по ним видна динамика за месяц.</li>
+    </ul>
+    <p>Возврат к уже заполненному дню (например, чтобы дописать вечернюю оценку) не создаёт вторую запись — обновляется та же строка.</p>
+
+    <h3><span class="emoji">🎯</span>Цели — мягкое планирование</h3>
+    <p>Иконка 🎯 в шапке главного экрана. Модуль для целей на разный горизонт, с идеей, что дедлайны можно двигать без вины за это.</p>
+    <ul>
+      <li>Три горизонта: <strong>месяц</strong> (эпик) → <strong>неделя</strong> (подзадача) → <strong>день</strong> (подзадача). Не больше двух уровней вложенности — у недельной цели могут быть только дневные подзадачи, у месячной — недельные или сразу дневные.</li>
+      <li>Поля цели: название, горизонт, дедлайн (по умолчанию — конец месяца/недели/сегодня, в зависимости от горизонта), необязательная заметка.</li>
+      <li>Дедлайн можно переносить сколько угодно раз — счётчик переносов виден в самой таблице, но нигде не выглядит как штраф.</li>
+      <li>Из карточки цели одним тапом «Запланировать как дело на сегодня» — создаётся связанная запись в «Делах», которая при синхронизации попадёт в лист «Дела», сохранив связь с целью в листе «Цели».</li>
+    </ul>
+    <a class="back-to-top" href="#toc">↑ К оглавлению</a>
+  </section>
+
+  <section id="section-6">
+    <h2><span class="num">6.</span> Офлайн-режим и синхронизация</h2>
+    <p>Дневник полностью работает без интернета: PIN, ввод и просмотр записей не требуют сети. Голосовому вводу и отправке в Google Таблицу нужна связь именно в момент, когда это происходит.</p>
+    <p>Если запись сохранена офлайн, она не теряется — попадает в очередь на отправку и синхронизируется автоматически, как только вернётся соединение. В ⚙️ Настройках, в блоке «Google Таблица», видно:</p>
+    <ul>
+      <li><strong>«⏳ Не синхронизировано: N»</strong> — сколько записей ждут отправки.</li>
+      <li><strong>«🔄 Синхронизировать сейчас»</strong> — кнопка, чтобы запустить отправку вручную, не дожидаясь автоматики (полезно, если хочется убедиться, что терапевт увидит запись прямо сейчас).</li>
+    </ul>
+    <a class="back-to-top" href="#toc">↑ К оглавлению</a>
+  </section>
+
+  <section id="section-7">
+    <h2><span class="num">7.</span> Для терапевта</h2>
+    <ol>
+      <li>Дождитесь приглашения к Google Таблице от пациента (письмо на почту либо через «Поделиться») и примите его — таблица появится в вашем Google Drive.</li>
+      <li>Откройте таблицу — там до четырёх листов: «Эмоции», «Дела», «Цели», «Настроение» (появляются по мере того, чем пользуется пациент).</li>
+      <li>Новые строки появляются автоматически при каждом сохранении на стороне пациента — обновлять вручную ничего не нужно.</li>
+      <li>Это обычная Google Таблица: фильтруйте, сортируйте, стройте сводные таблицы и графики так же, как с любым другим документом Sheets.</li>
+    </ol>
+    <div class="note">
+      <strong>Важно:</strong> в таблицу попадают только записи, которые пациент сам сохранил через приложение. На телефоне пациента они хранятся в зашифрованном виде и не читаются без его PIN-кода — то есть терапевт видит ровно то, чем пациент явно поделился через таблицу, и ничего сверх этого.
+    </div>
+    <a class="back-to-top" href="#toc">↑ К оглавлению</a>
+  </section>
+
+  <section id="section-8">
+    <h2><span class="num">8.</span> Безопасность и приватность</h2>
+    <ul>
+      <li>Все записи на устройстве зашифрованы AES-256-GCM; ключ шифрования выводится из PIN-кода и никуда не передаётся.</li>
+      <li>Синхронизация идёт напрямую из браузера пациента в Google Sheets API по протоколу OAuth2 — никакого промежуточного сервера, который видел бы содержимое записей, нет.</li>
+      <li>Доступ терапевта к данным полностью управляется через обычный Google Sheets «Поделиться» — его можно в любой момент сузить или отозвать прямо в Google Таблице, независимо от приложения.</li>
+      <li>PIN не восстанавливается (см. <a href="#section-2">раздел 2</a>) — это осознанный компромисс в пользу того, чтобы ключ шифрования нигде не хранился в открытом виде.</li>
+    </ul>
+    <a class="back-to-top" href="#toc">↑ К оглавлению</a>
+  </section>
+
+  <section id="section-9">
+    <h2><span class="num">9.</span> Частые проблемы</h2>
+
+    <details>
+      <summary>«Google не подтвердил это приложение»</summary>
+      <p>Ожидаемо, см. <a href="#section-3">шаг 3 раздела 3</a> — «Дополнительные настройки» → «Перейти на ABCDiary (небезопасно)».</p>
+    </details>
+
+    <details>
+      <summary>Окно входа Google не открывается / «Failed to open popup window»</summary>
+      <p>Обычно браузер блокирует всплывающие окна. Разрешите всплывающие окна для сайта в настройках браузера и нажмите «Сохранить и войти в Google» ещё раз — сразу по нажатию кнопки, без промежуточных действий.</p>
+    </details>
+
+    <details>
+      <summary>Записи не появляются в таблице</summary>
+      <p>Откройте ⚙️ Настройки — если там «⏳ Не синхронизировано: N», нажмите «🔄 Синхронизировать сейчас». Если счётчика нет и статус «Подключено» — проверьте, что открыта именно та таблица, ссылка на которую указана в настройках (сверьте последние 6 символов ID в статусе с концом ссылки в адресной строке).</p>
+    </details>
+
+    <details>
+      <summary>Не приходит запись от нужного Google-аккаунта / каждый раз спрашивает выбрать аккаунт</summary>
+      <p>Укажите email в поле «Google-аккаунт» в Настройках и сохраните ещё раз — дальше синхронизация будет идти от него без выбора.</p>
+    </details>
+
+    <details>
+      <summary>Нет кнопки 🎙 (голосовой ввод) на каком-то поле или во всём приложении</summary>
+      <p>Браузер/устройство не поддерживает Web Speech API — лучше всего он работает в Chrome на Android. Текст в это поле по-прежнему можно ввести с клавиатуры.</p>
+    </details>
+
+    <details>
+      <summary>Забыл PIN-код</summary>
+      <p>Восстановления нет — см. предупреждение в <a href="#section-2">разделе 2</a>. Данные, уже попавшие в Google Таблицу, никуда не денутся; несинхронизированные локальные записи на этом устройстве восстановить не получится.</p>
+    </details>
+
+    <details>
+      <summary>Нужна инструкция прямо в приложении</summary>
+      <p>Внутри дневника есть встроенная справка — значок «?» на главном экране и в Настройках, с той же кнопкой «🖨️ Сохранить как PDF» для печати короткой версии.</p>
+    </details>
+
+    <a class="back-to-top" href="#toc">↑ К оглавлению</a>
+  </section>
+
+</main>
+
+<footer>
+  <p>ABCDiary — <a href="./">открыть приложение</a> · <a href="https://github.com/fiscalagent/ABCDiary">исходный код на GitHub</a></p>
+</footer>
+
+</body>
+</html>
