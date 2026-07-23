@@ -850,7 +850,7 @@ function GoogleSettingsScreen({ config, msg, pendingSyncCount, onSave, onRevoke,
         <header className="app-header">
           <button className="text-btn" onClick={() => setShowHelp(false)}>← Назад</button>
           <span className="header-title">Инструкция</span>
-          <span style={{ minWidth: 64 }} />
+          <div className="header-actions" />
         </header>
         <div className="form-body">
           <div className="help-card">

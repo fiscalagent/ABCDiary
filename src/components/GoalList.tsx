@@ -71,7 +71,7 @@ export function GoalList({ goals, onView, onNew, onBack }: Props) {
       <header className="app-header">
         <button className="text-btn" onClick={onBack}>← Назад</button>
         <span className="header-title">🎯 Цели</span>
-        <span style={{ minWidth: 64 }} />
+        <div className="header-actions" />
       </header>
 
       <div className="search-area">

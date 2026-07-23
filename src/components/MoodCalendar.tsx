@@ -67,7 +67,7 @@ export function MoodCalendar({ moods, onBack, onOpenDay }: Props) {
       <header className="app-header">
         <button className="text-btn" onClick={onBack}>← Назад</button>
         <span className="header-title">😊 Настроение</span>
-        <span style={{ minWidth: 64 }} />
+        <div className="header-actions" />
       </header>
       <div className="form-body">
         <div className="date-cal">

@@ -142,25 +142,30 @@ export function GoalForm({ initial, mode, existing, parentGoal, onSave, onCancel
 
         <div className="field-group">
           <label className="field-label">Название</label>
-          <textarea
-            className={`field-textarea${status === 'recording' && activeField === 'title' ? ' recording-border' : ''}`}
-            value={title}
-            onChange={e => setTitle(e.target.value)}
-            rows={2}
-            placeholder="Что хотите сделать?"
-          />
-          {supported && (
-            <button
-              className="settings-btn secondary"
-              onClick={() => handleMic('title')}
-              style={{ marginTop: 4 }}
-            >
-              {status === 'recording' && activeField === 'title' ? '⏹ Остановить' : '🎙 Надиктовать название'}
-            </button>
-          )}
-          {status === 'recording' && activeField === 'title' && interimText && (
-            <p className="interim-preview">{interimText}</p>
-          )}
+          <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <textarea
+                className={`field-textarea${status === 'recording' && activeField === 'title' ? ' recording-border' : ''}`}
+                value={title}
+                onChange={e => setTitle(e.target.value)}
+                rows={2}
+                placeholder="Что хотите сделать?"
+              />
+              {status === 'recording' && activeField === 'title' && interimText && (
+                <p className="interim-preview">{interimText}</p>
+              )}
+            </div>
+            {supported && (
+              <button
+                type="button"
+                className={`mic-inline-btn${status === 'recording' && activeField === 'title' ? ' recording' : ''}`}
+                onClick={() => handleMic('title')}
+                aria-label={status === 'recording' && activeField === 'title' ? 'Остановить запись' : 'Голосовой ввод'}
+              >
+                🎙
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="field-group">
@@ -190,25 +195,30 @@ export function GoalForm({ initial, mode, existing, parentGoal, onSave, onCancel
 
         <div className="field-group">
           <label className="field-label">Заметка (необязательно)</label>
-          <textarea
-            className={`field-textarea${status === 'recording' && activeField === 'note' ? ' recording-border' : ''}`}
-            value={note}
-            onChange={e => setNote(e.target.value)}
-            rows={3}
-            placeholder="Почему это важно? Что мешает? Что чувствуете об этом?"
-          />
-          {supported && (
-            <button
-              className="settings-btn secondary"
-              onClick={() => handleMic('note')}
-              style={{ marginTop: 4 }}
-            >
-              {status === 'recording' && activeField === 'note' ? '⏹ Остановить' : '🎙 Надиктовать заметку'}
-            </button>
-          )}
-          {status === 'recording' && activeField === 'note' && interimText && (
-            <p className="interim-preview">{interimText}</p>
-          )}
+          <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <textarea
+                className={`field-textarea${status === 'recording' && activeField === 'note' ? ' recording-border' : ''}`}
+                value={note}
+                onChange={e => setNote(e.target.value)}
+                rows={3}
+                placeholder="Почему это важно? Что мешает? Что чувствуете об этом?"
+              />
+              {status === 'recording' && activeField === 'note' && interimText && (
+                <p className="interim-preview">{interimText}</p>
+              )}
+            </div>
+            {supported && (
+              <button
+                type="button"
+                className={`mic-inline-btn${status === 'recording' && activeField === 'note' ? ' recording' : ''}`}
+                onClick={() => handleMic('note')}
+                aria-label={status === 'recording' && activeField === 'note' ? 'Остановить запись' : 'Голосовой ввод'}
+              >
+                🎙
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>

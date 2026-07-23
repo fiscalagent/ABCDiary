@@ -692,7 +692,7 @@ export function EntryForm({ initial, initialSheetType, mode, onSave, onCancel, o
         <header className="app-header">
           <button className="text-btn" onClick={onCancel}>Отмена</button>
           <span className="header-title">Новая запись</span>
-          <span style={{ minWidth: 64 }} />
+          <div className="header-actions" />
         </header>
         <div className="sheet-select-body">
           <p className="sheet-select-prompt">Что записываем?</p>
@@ -863,7 +863,7 @@ export function EntryForm({ initial, initialSheetType, mode, onSave, onCancel, o
         {effectiveMode === 'evaluate' ? (
           // Two-button flow lives at the bottom of the form (see below) so the
           // header keeps the «Назад» + title rhythm of the other screens.
-          <span style={{ minWidth: 64 }} />
+          <div className="header-actions" />
         ) : (
           <button className="text-btn primary" onClick={() => handleSave()} disabled={saving}>
             {saving ? '…' : 'Сохранить'}

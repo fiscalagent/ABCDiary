@@ -203,7 +203,7 @@ body {
   line-height: 1;
 }
 .icon-btn.help {
-  color: #26A69A;
+  color: var(--primary);
   font-weight: 700;
   font-size: 22px;
 }
@@ -396,8 +396,8 @@ body {
   background: var(--accent-bg, rgba(0,0,0,0.06));
 }
 .goal-deadline-ok { color: var(--text-secondary); }
-.goal-deadline-warn { color: #b86b00; background: rgba(255, 165, 0, 0.15); }
-.goal-deadline-late { color: #c43d3d; background: rgba(220, 53, 69, 0.15); }
+.goal-deadline-warn { color: var(--abc-warn); background: var(--abc-warn-tint); }
+.goal-deadline-late { color: var(--abc-danger); background: var(--abc-danger-tint); }
 
 /* Today's planned tasks pinned above the regular log */
 .planned-section {
@@ -1121,7 +1121,7 @@ body {
 }
 .gs-toggle-icon { font-size: 20px; line-height: 1; }
 .gs-toggle-label { flex: 1; font-weight: 600; }
-.gs-toggle-arrow { font-size: 11px; color: var(--muted); }
+.gs-toggle-arrow { font-size: 11px; color: var(--text-secondary); }
 
 /* Connection summary (shown when a table is configured) */
 .gs-status {
@@ -1237,13 +1237,13 @@ body {
   background: var(--bg);
   border-color: var(--border);
   font-size: 13px;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   line-height: 1.6;
 }
 
 .help-sub {
   font-size: 13px;
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 
 /* ── Changelog ── */
