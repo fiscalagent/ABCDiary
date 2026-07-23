@@ -270,7 +270,7 @@ const STATUS_LABEL: Record<GoalStatus, string> = {
   cancelled: 'отменена',
 };
 
-const HEADERS: Record<string, string[]> = {
+export const HEADERS: Record<string, string[]> = {
   Эмоции: ['ID', 'Время', 'Дата', 'Триггерная ситуация', 'Мысли', 'Эмоции', 'Поведение'],
   // Status appended at the end so spreadsheets created before 1.5.0 keep their
   // existing column layout — the new column lands in J with an empty header.
@@ -463,14 +463,19 @@ export async function exportMoodToSheet(cfg: GoogleConfig, mood: MoodEntry): Pro
   });
 }
 
-async function writeMoodRow(cfg: GoogleConfig, mood: MoodEntry): Promise<void> {
-  const sheetName = SHEET_NAMES.moods;
-  const row: string[] = [
+// Exported (pure, no network) so the column order can be pinned in a test
+// instead of only being verified by eye against a live spreadsheet.
+export function buildMoodRow(mood: MoodEntry): string[] {
+  return [
     mood.date,
     mood.morning, mood.commentMorning,
     mood.day, mood.commentDay,
     mood.evening, mood.commentEvening,
     mood.med1, mood.dose1, mood.med2, mood.dose2, mood.med3, mood.dose3,
   ];
-  await upsertRow(cfg, sheetName, row, mood.date, 'Дата');
+}
+
+async function writeMoodRow(cfg: GoogleConfig, mood: MoodEntry): Promise<void> {
+  const sheetName = SHEET_NAMES.moods;
+  await upsertRow(cfg, sheetName, buildMoodRow(mood), mood.date, 'Дата');
 }
