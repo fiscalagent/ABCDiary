@@ -293,7 +293,21 @@ export async function initSpreadsheet(cfg: GoogleConfig): Promise<void> {
 
   const addRequests = Object.values(SHEET_NAMES)
     .filter(name => !existing.has(name))
-    .map(name => ({ addSheet: { properties: { title: name } } }));
+    .map(name => ({
+      addSheet: {
+        properties: {
+          title: name,
+          // A new tab defaults to Sheets' standard 1000-row grid. The header
+          // below lands in row 1 via a targeted PUT, but values:append's
+          // table-detection then sees that whole pre-allocated (blank) grid
+          // as part of the table and appends after row 1000 instead of row
+          // 2 — the first real save on a fresh tab lands ~1000 rows down,
+          // looking like a missing row until you scroll. Starting small
+          // avoids it; Sheets grows the grid automatically as rows fill in.
+          gridProperties: { rowCount: 2, columnCount: HEADERS[name]?.length ?? 26 },
+        },
+      },
+    }));
 
   if (addRequests.length > 0) {
     await sheetsReq(cfg, '/batchUpdate', 'POST', { requests: addRequests });

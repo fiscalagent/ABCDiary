@@ -58,6 +58,11 @@ export default function App() {
   const [settingsMsg, setSettingsMsg] = useState('');
   const [syncToast, setSyncToast] = useState('');
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
+  // Records currently mid-export (key: "entries:<id>" / "goals:<id>" / "moods:<id>"),
+  // shared between a save's own direct sync and retryPendingSync so the two
+  // never target the same row at once — see retryPendingSync for why that matters.
+  const syncingRef = useRef<Set<string>>(new Set());
+  const retryInFlightRef = useRef(false);
   const { updateAvailable, applyUpdate } = useAppUpdate();
 
   useEffect(() => {
@@ -192,57 +197,82 @@ export default function App() {
   // demand from the Settings "Синхронизировать сейчас" button — since without
   // this a task marked "done" while offline would show as done locally
   // forever while the sheet silently kept the old status.
+  //
+  // Guarded on two fronts, both learned from a real duplicate-row bug: (1)
+  // syncingRef skips any row a save's own direct sync is already exporting —
+  // upsertRow's "look for a matching row, else append" isn't atomic, so two
+  // concurrent exports of the same not-yet-appended row both miss the match
+  // and both append, and (2) retryInFlightRef stops overlapping calls to this
+  // function itself (e.g. 'online' and 'focus' firing close together).
   const retryPendingSync = useCallback(async (): Promise<number> => {
-    if (!cryptoKey || !googleConfig) return pendingSyncCount;
-    const key = cryptoKey;
-    const cfg = googleConfig;
-    let synced = 0;
+    if (!cryptoKey || !googleConfig) return 0;
+    if (retryInFlightRef.current) return refreshPendingSyncCount();
+    retryInFlightRef.current = true;
+    try {
+      const key = cryptoKey;
+      const cfg = googleConfig;
+      let synced = 0;
 
-    const pendingEntries = (await db.entries.toArray()).filter(r => r.pendingSync);
-    for (const r of pendingEntries) {
-      try {
-        const data = await decryptData(r.iv, r.ciphertext, key) as EntryData;
-        const full = {
-          ...data, id: r.id!, createdAt: new Date(r.createdAt), updatedAt: new Date(r.updatedAt),
-        } as DiaryEntry;
-        await exportEntryToSheet(cfg, full);
-        await db.entries.update(r.id!, { pendingSync: false });
-        synced++;
-      } catch { /* still unreachable — leave pending, try again next time */ }
-    }
+      const pendingEntries = (await db.entries.toArray())
+        .filter(r => r.pendingSync && !syncingRef.current.has(`entries:${r.id}`));
+      for (const r of pendingEntries) {
+        const syncKey = `entries:${r.id}`;
+        syncingRef.current.add(syncKey);
+        try {
+          const data = await decryptData(r.iv, r.ciphertext, key) as EntryData;
+          const full = {
+            ...data, id: r.id!, createdAt: new Date(r.createdAt), updatedAt: new Date(r.updatedAt),
+          } as DiaryEntry;
+          await exportEntryToSheet(cfg, full);
+          await db.entries.update(r.id!, { pendingSync: false });
+          synced++;
+        } catch { /* still unreachable — leave pending, try again next time */ }
+        finally { syncingRef.current.delete(syncKey); }
+      }
 
-    const pendingGoals = (await db.goals.toArray()).filter(r => r.pendingSync);
-    for (const r of pendingGoals) {
-      try {
-        const data = await decryptData(r.iv, r.ciphertext, key) as GoalData;
-        const goal: Goal = {
-          ...data, id: r.id!, createdAt: new Date(r.createdAt), updatedAt: new Date(r.updatedAt),
-        };
-        await exportGoalToSheet(cfg, goal);
-        await db.goals.update(r.id!, { pendingSync: false });
-        synced++;
-      } catch { /* leave pending */ }
-    }
+      const pendingGoals = (await db.goals.toArray())
+        .filter(r => r.pendingSync && !syncingRef.current.has(`goals:${r.id}`));
+      for (const r of pendingGoals) {
+        const syncKey = `goals:${r.id}`;
+        syncingRef.current.add(syncKey);
+        try {
+          const data = await decryptData(r.iv, r.ciphertext, key) as GoalData;
+          const goal: Goal = {
+            ...data, id: r.id!, createdAt: new Date(r.createdAt), updatedAt: new Date(r.updatedAt),
+          };
+          await exportGoalToSheet(cfg, goal);
+          await db.goals.update(r.id!, { pendingSync: false });
+          synced++;
+        } catch { /* leave pending */ }
+        finally { syncingRef.current.delete(syncKey); }
+      }
 
-    const pendingMoods = (await db.moods.toArray()).filter(r => r.pendingSync);
-    for (const r of pendingMoods) {
-      try {
-        const data = await decryptData(r.iv, r.ciphertext, key) as MoodData;
-        const mood: MoodEntry = {
-          ...data, id: r.id!, createdAt: new Date(r.createdAt), updatedAt: new Date(r.updatedAt),
-        };
-        await exportMoodToSheet(cfg, mood);
-        await db.moods.update(r.id!, { pendingSync: false });
-        synced++;
-      } catch { /* leave pending */ }
-    }
+      const pendingMoods = (await db.moods.toArray())
+        .filter(r => r.pendingSync && !syncingRef.current.has(`moods:${r.id}`));
+      for (const r of pendingMoods) {
+        const syncKey = `moods:${r.id}`;
+        syncingRef.current.add(syncKey);
+        try {
+          const data = await decryptData(r.iv, r.ciphertext, key) as MoodData;
+          const mood: MoodEntry = {
+            ...data, id: r.id!, createdAt: new Date(r.createdAt), updatedAt: new Date(r.updatedAt),
+          };
+          await exportMoodToSheet(cfg, mood);
+          await db.moods.update(r.id!, { pendingSync: false });
+          synced++;
+        } catch { /* leave pending */ }
+        finally { syncingRef.current.delete(syncKey); }
+      }
 
-    if (synced > 0) {
-      setSyncToast(`✅ Досинхронизировано отложенных записей: ${synced}`);
-      setTimeout(() => setSyncToast(''), 4000);
+      if (synced > 0) {
+        setSyncToast(`✅ Досинхронизировано отложенных записей: ${synced}`);
+        setTimeout(() => setSyncToast(''), 4000);
+      }
+      return refreshPendingSyncCount();
+    } finally {
+      retryInFlightRef.current = false;
     }
-    return refreshPendingSyncCount();
-  }, [cryptoKey, googleConfig, pendingSyncCount, refreshPendingSyncCount]);
+  }, [cryptoKey, googleConfig, refreshPendingSyncCount]);
 
   useEffect(() => {
     if (!cryptoKey || !googleConfig) return;
@@ -287,6 +317,8 @@ export default function App() {
       // never reach the sheet, since nothing else would ever retry it.
       await db.entries.update(dbId, { pendingSync: true });
       refreshPendingSyncCount();
+      const syncKey = `entries:${dbId}`;
+      syncingRef.current.add(syncKey);
       exportEntryToSheet(googleConfig, fullEntry)
         .then(() => {
           db.entries.update(dbId, { pendingSync: false });
@@ -297,7 +329,8 @@ export default function App() {
         .catch(err => {
           setSyncToast(`⚠️ Ошибка синхронизации: ${err instanceof Error ? err.message : String(err)}`);
           setTimeout(() => setSyncToast(''), 6000);
-        });
+        })
+        .finally(() => { syncingRef.current.delete(syncKey); });
     }
   };
 
@@ -332,6 +365,8 @@ export default function App() {
       if (googleConfig) {
         await db.moods.update(dbId, { pendingSync: true });
         refreshPendingSyncCount();
+        const syncKey = `moods:${dbId}`;
+        syncingRef.current.add(syncKey);
         exportMoodToSheet(googleConfig, mood)
           .then(() => {
             db.moods.update(dbId, { pendingSync: false });
@@ -342,7 +377,8 @@ export default function App() {
           .catch(err => {
             setSyncToast(`⚠️ Ошибка синхронизации: ${err instanceof Error ? err.message : String(err)}`);
             setTimeout(() => setSyncToast(''), 6000);
-          });
+          })
+          .finally(() => { syncingRef.current.delete(syncKey); });
       }
       return mood;
     },
@@ -382,6 +418,8 @@ export default function App() {
       if (googleConfig) {
         await db.goals.update(dbId, { pendingSync: true });
         refreshPendingSyncCount();
+        const syncKey = `goals:${dbId}`;
+        syncingRef.current.add(syncKey);
         exportGoalToSheet(googleConfig, goal)
           .then(() => {
             db.goals.update(dbId, { pendingSync: false });
@@ -392,7 +430,8 @@ export default function App() {
           .catch(err => {
             setSyncToast(`⚠️ Ошибка синхронизации: ${err instanceof Error ? err.message : String(err)}`);
             setTimeout(() => setSyncToast(''), 6000);
-          });
+          })
+          .finally(() => { syncingRef.current.delete(syncKey); });
       }
       return goal;
     },
